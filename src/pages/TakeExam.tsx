@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Progress } from "@/components/ui/progress";
-import { Clock, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Clock, AlertTriangle, CheckCircle2, Camera } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,11 +14,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAntiCheat } from "@/hooks/useAntiCheat";
+import { useWebcam, CapturedPhoto } from "@/hooks/useWebcam";
 import { AntiCheatWarning } from "@/components/exam/AntiCheatWarning";
 import { FullscreenPrompt } from "@/components/exam/FullscreenPrompt";
 import { SecurityStatusBar } from "@/components/exam/SecurityStatusBar";
 import { QuestionCard } from "@/components/exam/QuestionCard";
 import { QuestionNavigator } from "@/components/exam/QuestionNavigator";
+import { WebcamProctor } from "@/components/exam/WebcamProctor";
 
 const mockQuestions = [
   {
@@ -70,10 +72,35 @@ const TakeExam = () => {
   const [showSecurityWarning, setShowSecurityWarning] = useState(false);
   const [warningType, setWarningType] = useState<"fullscreen" | "tab_switch" | "blocked">("fullscreen");
   const [examStarted, setExamStarted] = useState(false);
+  const [isRequestingPermissions, setIsRequestingPermissions] = useState(false);
+  
+  // Webcam state
+  const [webcamMinimized, setWebcamMinimized] = useState(false);
 
   const handleForceSubmit = useCallback(() => {
     submitExam();
   }, []);
+
+  // Webcam hook
+  const handlePhotoCapture = useCallback((photo: CapturedPhoto) => {
+    console.log(`[Proctor] Photo captured: ${photo.type}`, photo.timestamp);
+    // In production, this would upload to storage
+  }, []);
+
+  const {
+    isEnabled: webcamEnabled,
+    isLoading: webcamLoading,
+    error: webcamError,
+    capturedPhotos,
+    requestAccess: requestWebcamAccess,
+    attachToVideo,
+    stopWebcam,
+    photoCount,
+  } = useWebcam({
+    autoCapture: examStarted,
+    captureIntervalMs: 60000, // Capture every minute
+    onPhotoCapture: handlePhotoCapture,
+  });
 
   const {
     isFullscreen,
@@ -82,7 +109,6 @@ const TakeExam = () => {
     isBlocked,
     activityLogs,
     requestFullscreen,
-    remainingViolations,
   } = useAntiCheat({
     maxViolations: 3,
     onMaxViolationsReached: () => {
@@ -97,24 +123,44 @@ const TakeExam = () => {
 
   // Handle entering fullscreen and starting exam
   const handleEnterFullscreen = async () => {
-    const success = await requestFullscreen();
-    if (success) {
-      setShowFullscreenPrompt(false);
-      setExamStarted(true);
+    setIsRequestingPermissions(true);
+    
+    // First request webcam access
+    const webcamSuccess = await requestWebcamAccess();
+    if (!webcamSuccess) {
+      setIsRequestingPermissions(false);
       toast({
-        title: "Exam Started",
-        description: "Secure mode activated. Good luck!",
+        title: "Webcam Required",
+        description: "Please allow webcam access to start the exam.",
+        variant: "destructive",
       });
-    } else {
+      return;
+    }
+    
+    // Then request fullscreen
+    const fullscreenSuccess = await requestFullscreen();
+    if (!fullscreenSuccess) {
+      setIsRequestingPermissions(false);
       toast({
         title: "Fullscreen Required",
         description: "Please allow fullscreen mode to start the exam.",
         variant: "destructive",
       });
+      return;
     }
+    
+    setIsRequestingPermissions(false);
+    setShowFullscreenPrompt(false);
+    setExamStarted(true);
+    
+    toast({
+      title: "Exam Started",
+      description: "Secure mode and webcam proctoring activated. Good luck!",
+    });
   };
 
   const handleCancelExam = () => {
+    stopWebcam();
     navigate("/exams");
   };
 
@@ -161,10 +207,11 @@ const TakeExam = () => {
     const autoSave = setInterval(() => {
       console.log("Auto-saving answers:", answers);
       console.log("Activity logs:", activityLogs);
+      console.log("Captured photos:", capturedPhotos.length);
     }, 30000);
 
     return () => clearInterval(autoSave);
-  }, [answers, activityLogs, examStarted]);
+  }, [answers, activityLogs, examStarted, capturedPhotos]);
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -211,7 +258,8 @@ const TakeExam = () => {
       }
     });
 
-    // Exit fullscreen before navigating
+    // Stop webcam and exit fullscreen before navigating
+    stopWebcam();
     if (document.fullscreenElement) {
       document.exitFullscreen();
     }
@@ -225,6 +273,7 @@ const TakeExam = () => {
           questions: mockQuestions,
           activityLogs,
           violations,
+          proctorPhotos: capturedPhotos.length,
         } 
       });
     }, 1500);
@@ -241,6 +290,8 @@ const TakeExam = () => {
       <FullscreenPrompt
         onEnterFullscreen={handleEnterFullscreen}
         onCancel={handleCancelExam}
+        isRequestingWebcam={isRequestingPermissions}
+        webcamError={webcamError}
       />
     );
   }
@@ -263,6 +314,18 @@ const TakeExam = () => {
           <div className="font-display font-semibold">Mathematics Final Exam</div>
           
           <div className="flex items-center gap-4">
+            {/* Webcam status indicator (minimized) */}
+            {webcamMinimized && (
+              <WebcamProctor
+                isEnabled={webcamEnabled}
+                onVideoRef={attachToVideo}
+                photoCount={photoCount}
+                error={webcamError}
+                minimized={true}
+                onToggleMinimize={() => setWebcamMinimized(false)}
+              />
+            )}
+            
             <SecurityStatusBar
               violations={violations}
               maxViolations={3}
@@ -309,14 +372,28 @@ const TakeExam = () => {
           </div>
 
           {/* Sidebar */}
-          <QuestionNavigator
-            questions={mockQuestions}
-            currentQuestion={currentQuestion}
-            answers={answers}
-            flagged={flagged}
-            onQuestionSelect={setCurrentQuestion}
-            onSubmit={() => setShowSubmitDialog(true)}
-          />
+          <div className="space-y-4">
+            {/* Webcam Feed */}
+            {!webcamMinimized && (
+              <WebcamProctor
+                isEnabled={webcamEnabled}
+                onVideoRef={attachToVideo}
+                photoCount={photoCount}
+                error={webcamError}
+                className="aspect-[4/3]"
+                onToggleMinimize={() => setWebcamMinimized(true)}
+              />
+            )}
+            
+            <QuestionNavigator
+              questions={mockQuestions}
+              currentQuestion={currentQuestion}
+              answers={answers}
+              flagged={flagged}
+              onQuestionSelect={setCurrentQuestion}
+              onSubmit={() => setShowSubmitDialog(true)}
+            />
+          </div>
         </div>
       </div>
 
@@ -353,6 +430,13 @@ const TakeExam = () => {
                     <span className="font-medium text-destructive">{violations}</span>
                   </div>
                 )}
+                <div className="flex justify-between">
+                  <span className="flex items-center gap-1">
+                    <Camera className="h-3 w-3" />
+                    Photos Captured:
+                  </span>
+                  <span className="font-medium">{photoCount}</span>
+                </div>
               </div>
               {mockQuestions.length - answeredCount > 0 && (
                 <p className="text-destructive text-sm mt-2">
