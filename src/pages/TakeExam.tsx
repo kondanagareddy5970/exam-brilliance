@@ -1,19 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { 
-  Clock, 
-  ChevronLeft, 
-  ChevronRight, 
-  Flag,
-  AlertTriangle,
-  CheckCircle2,
-  Send
-} from "lucide-react";
+import { Clock, AlertTriangle, CheckCircle2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,6 +13,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useAntiCheat } from "@/hooks/useAntiCheat";
+import { AntiCheatWarning } from "@/components/exam/AntiCheatWarning";
+import { FullscreenPrompt } from "@/components/exam/FullscreenPrompt";
+import { SecurityStatusBar } from "@/components/exam/SecurityStatusBar";
+import { QuestionCard } from "@/components/exam/QuestionCard";
+import { QuestionNavigator } from "@/components/exam/QuestionNavigator";
 
 const mockQuestions = [
   {
@@ -67,12 +61,86 @@ const TakeExam = () => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [flagged, setFlagged] = useState<Set<number>>(new Set());
-  const [timeLeft, setTimeLeft] = useState(120 * 60); // 120 minutes in seconds
+  const [timeLeft, setTimeLeft] = useState(120 * 60);
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Anti-cheat state
+  const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(true);
+  const [showSecurityWarning, setShowSecurityWarning] = useState(false);
+  const [warningType, setWarningType] = useState<"fullscreen" | "tab_switch" | "blocked">("fullscreen");
+  const [examStarted, setExamStarted] = useState(false);
+
+  const handleForceSubmit = useCallback(() => {
+    submitExam();
+  }, []);
+
+  const {
+    isFullscreen,
+    tabSwitchCount,
+    violations,
+    isBlocked,
+    activityLogs,
+    requestFullscreen,
+    remainingViolations,
+  } = useAntiCheat({
+    maxViolations: 3,
+    onMaxViolationsReached: () => {
+      setWarningType("blocked");
+      setShowSecurityWarning(true);
+    },
+    enableFullscreenEnforcement: examStarted,
+    enableTabSwitchDetection: examStarted,
+    enableRightClickPrevention: examStarted,
+    enableCopyPastePrevention: examStarted,
+  });
+
+  // Handle entering fullscreen and starting exam
+  const handleEnterFullscreen = async () => {
+    const success = await requestFullscreen();
+    if (success) {
+      setShowFullscreenPrompt(false);
+      setExamStarted(true);
+      toast({
+        title: "Exam Started",
+        description: "Secure mode activated. Good luck!",
+      });
+    } else {
+      toast({
+        title: "Fullscreen Required",
+        description: "Please allow fullscreen mode to start the exam.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCancelExam = () => {
+    navigate("/exams");
+  };
+
+  // Show warning when violations occur
+  useEffect(() => {
+    if (examStarted && violations > 0 && !isBlocked) {
+      if (!isFullscreen) {
+        setWarningType("fullscreen");
+      } else {
+        setWarningType("tab_switch");
+      }
+      setShowSecurityWarning(true);
+    }
+  }, [violations, isFullscreen, examStarted, isBlocked]);
+
+  const handleReturnToExam = async () => {
+    setShowSecurityWarning(false);
+    if (!isFullscreen) {
+      await requestFullscreen();
+    }
+  };
 
   // Timer
   useEffect(() => {
+    if (!examStarted) return;
+    
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
@@ -84,17 +152,19 @@ const TakeExam = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [examStarted]);
 
   // Auto-save
   useEffect(() => {
+    if (!examStarted) return;
+    
     const autoSave = setInterval(() => {
-      // Simulate auto-save
       console.log("Auto-saving answers:", answers);
+      console.log("Activity logs:", activityLogs);
     }, 30000);
 
     return () => clearInterval(autoSave);
-  }, [answers]);
+  }, [answers, activityLogs, examStarted]);
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -130,11 +200,10 @@ const TakeExam = () => {
       variant: "destructive",
     });
     submitExam();
-  }, [answers]);
+  }, []);
 
   const submitExam = () => {
     setIsSubmitting(true);
-    // Calculate score
     let correct = 0;
     mockQuestions.forEach((q) => {
       if (answers[q.id] === q.correctAnswer) {
@@ -142,13 +211,20 @@ const TakeExam = () => {
       }
     });
 
+    // Exit fullscreen before navigating
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    }
+
     setTimeout(() => {
       navigate(`/exam/${examId}/results`, { 
         state: { 
           score: correct, 
           total: mockQuestions.length,
           answers,
-          questions: mockQuestions 
+          questions: mockQuestions,
+          activityLogs,
+          violations,
         } 
       });
     }, 1500);
@@ -157,17 +233,47 @@ const TakeExam = () => {
   const question = mockQuestions[currentQuestion];
   const answeredCount = Object.keys(answers).length;
   const progress = (answeredCount / mockQuestions.length) * 100;
-  const isUrgent = timeLeft <= 300; // Less than 5 minutes
+  const isUrgent = timeLeft <= 300;
+
+  // Show fullscreen prompt before exam starts
+  if (showFullscreenPrompt) {
+    return (
+      <FullscreenPrompt
+        onEnterFullscreen={handleEnterFullscreen}
+        onCancel={handleCancelExam}
+      />
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background exam-content">
+      {/* Security Warning Dialog */}
+      <AntiCheatWarning
+        isOpen={showSecurityWarning}
+        violations={violations}
+        maxViolations={3}
+        type={warningType}
+        onReturnToExam={handleReturnToExam}
+        onForceSubmit={handleForceSubmit}
+      />
+
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-card/95 backdrop-blur">
         <div className="container flex h-16 items-center justify-between">
           <div className="font-display font-semibold">Mathematics Final Exam</div>
-          <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isUrgent ? "bg-destructive/10 text-destructive timer-urgent" : "bg-muted"}`}>
-            <Clock className="h-5 w-5" />
-            <span className="font-mono font-bold text-lg">{formatTime(timeLeft)}</span>
+          
+          <div className="flex items-center gap-4">
+            <SecurityStatusBar
+              violations={violations}
+              maxViolations={3}
+              tabSwitchCount={tabSwitchCount}
+              isFullscreen={isFullscreen}
+            />
+            
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isUrgent ? "bg-destructive/10 text-destructive timer-urgent" : "bg-muted"}`}>
+              <Clock className="h-5 w-5" />
+              <span className="font-mono font-bold text-lg">{formatTime(timeLeft)}</span>
+            </div>
           </div>
         </div>
       </header>
@@ -186,122 +292,31 @@ const TakeExam = () => {
             </div>
 
             {/* Question Card */}
-            <Card variant="elevated">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-lg">Question {currentQuestion + 1}</CardTitle>
-                <Button
-                  variant={flagged.has(question.id) ? "destructive" : "outline"}
-                  size="sm"
-                  onClick={() => toggleFlag(question.id)}
-                >
-                  <Flag className="h-4 w-4 mr-1" />
-                  {flagged.has(question.id) ? "Flagged" : "Flag for Review"}
-                </Button>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <p className="text-lg font-medium">{question.question}</p>
-
-                <RadioGroup
-                  value={answers[question.id]?.toString()}
-                  onValueChange={(value) => handleAnswerSelect(question.id, parseInt(value))}
-                >
-                  {question.options.map((option, index) => (
-                    <div 
-                      key={index} 
-                      className={`flex items-center space-x-3 p-4 rounded-lg border transition-colors cursor-pointer
-                        ${answers[question.id] === index ? "border-primary bg-primary/5" : "hover:bg-muted"}`}
-                    >
-                      <RadioGroupItem value={index.toString()} id={`option-${index}`} />
-                      <Label htmlFor={`option-${index}`} className="flex-1 cursor-pointer">
-                        {option}
-                      </Label>
-                    </div>
-                  ))}
-                </RadioGroup>
-
-                {/* Navigation */}
-                <div className="flex justify-between pt-4">
-                  <Button
-                    variant="outline"
-                    onClick={() => setCurrentQuestion((prev) => prev - 1)}
-                    disabled={currentQuestion === 0}
-                  >
-                    <ChevronLeft className="h-4 w-4 mr-1" />
-                    Previous
-                  </Button>
-
-                  {currentQuestion === mockQuestions.length - 1 ? (
-                    <Button variant="hero" onClick={() => setShowSubmitDialog(true)}>
-                      <Send className="h-4 w-4 mr-1" />
-                      Submit Exam
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="default"
-                      onClick={() => setCurrentQuestion((prev) => prev + 1)}
-                    >
-                      Next
-                      <ChevronRight className="h-4 w-4 ml-1" />
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            <QuestionCard
+              question={question}
+              questionIndex={currentQuestion}
+              totalQuestions={mockQuestions.length}
+              selectedAnswer={answers[question.id]}
+              isFlagged={flagged.has(question.id)}
+              onAnswerSelect={handleAnswerSelect}
+              onToggleFlag={toggleFlag}
+              onPrevious={() => setCurrentQuestion((prev) => prev - 1)}
+              onNext={() => setCurrentQuestion((prev) => prev + 1)}
+              onSubmit={() => setShowSubmitDialog(true)}
+              isLastQuestion={currentQuestion === mockQuestions.length - 1}
+              isFirstQuestion={currentQuestion === 0}
+            />
           </div>
 
-          {/* Sidebar - Question Navigator */}
-          <div className="space-y-4">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm">Question Navigator</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-5 gap-2">
-                  {mockQuestions.map((q, index) => (
-                    <button
-                      key={q.id}
-                      onClick={() => setCurrentQuestion(index)}
-                      className={`h-10 w-10 rounded-lg font-medium text-sm transition-all relative
-                        ${currentQuestion === index ? "ring-2 ring-primary ring-offset-2" : ""}
-                        ${answers[q.id] !== undefined
-                          ? "bg-success text-success-foreground"
-                          : "bg-muted hover:bg-muted/80"
-                        }`}
-                    >
-                      {index + 1}
-                      {flagged.has(q.id) && (
-                        <Flag className="absolute -top-1 -right-1 h-3 w-3 text-destructive" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="mt-4 space-y-2 text-xs">
-                  <div className="flex items-center gap-2">
-                    <div className="h-4 w-4 rounded bg-success" />
-                    <span>Answered</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="h-4 w-4 rounded bg-muted" />
-                    <span>Not answered</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Flag className="h-4 w-4 text-destructive" />
-                    <span>Flagged for review</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Button 
-              variant="hero" 
-              className="w-full"
-              onClick={() => setShowSubmitDialog(true)}
-            >
-              <Send className="h-4 w-4 mr-2" />
-              Submit Exam
-            </Button>
-          </div>
+          {/* Sidebar */}
+          <QuestionNavigator
+            questions={mockQuestions}
+            currentQuestion={currentQuestion}
+            answers={answers}
+            flagged={flagged}
+            onQuestionSelect={setCurrentQuestion}
+            onSubmit={() => setShowSubmitDialog(true)}
+          />
         </div>
       </div>
 
@@ -332,6 +347,12 @@ const TakeExam = () => {
                   <span>Flagged:</span>
                   <span className="font-medium text-warning">{flagged.size}</span>
                 </div>
+                {violations > 0 && (
+                  <div className="flex justify-between">
+                    <span>Security Violations:</span>
+                    <span className="font-medium text-destructive">{violations}</span>
+                  </div>
+                )}
               </div>
               {mockQuestions.length - answeredCount > 0 && (
                 <p className="text-destructive text-sm mt-2">
