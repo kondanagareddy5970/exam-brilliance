@@ -14,13 +14,181 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      exam_sessions: {
+        Row: {
+          created_at: string
+          end_time: string | null
+          exam_id: string
+          exam_title: string
+          id: string
+          score: number | null
+          start_time: string
+          submission_status: string
+          total_questions: number | null
+          user_id: string
+          violations_count: number
+        }
+        Insert: {
+          created_at?: string
+          end_time?: string | null
+          exam_id: string
+          exam_title: string
+          id?: string
+          score?: number | null
+          start_time?: string
+          submission_status?: string
+          total_questions?: number | null
+          user_id: string
+          violations_count?: number
+        }
+        Update: {
+          created_at?: string
+          end_time?: string | null
+          exam_id?: string
+          exam_title?: string
+          id?: string
+          score?: number | null
+          start_time?: string
+          submission_status?: string
+          total_questions?: number | null
+          user_id?: string
+          violations_count?: number
+        }
+        Relationships: []
+      }
+      face_detection_events: {
+        Row: {
+          detected_at: string
+          event_type: string
+          exam_session_id: string
+          face_count: number
+          id: string
+        }
+        Insert: {
+          detected_at?: string
+          event_type: string
+          exam_session_id: string
+          face_count?: number
+          id?: string
+        }
+        Update: {
+          detected_at?: string
+          event_type?: string
+          exam_session_id?: string
+          face_count?: number
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "face_detection_events_exam_session_id_fkey"
+            columns: ["exam_session_id"]
+            isOneToOne: false
+            referencedRelation: "exam_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proctoring_photos: {
+        Row: {
+          captured_at: string
+          exam_session_id: string
+          id: string
+          photo_type: string
+          photo_url: string
+        }
+        Insert: {
+          captured_at?: string
+          exam_session_id: string
+          id?: string
+          photo_type: string
+          photo_url: string
+        }
+        Update: {
+          captured_at?: string
+          exam_session_id?: string
+          id?: string
+          photo_type?: string
+          photo_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proctoring_photos_exam_session_id_fkey"
+            columns: ["exam_session_id"]
+            isOneToOne: false
+            referencedRelation: "exam_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          role: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          role?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          role?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      security_activity_logs: {
+        Row: {
+          activity_type: string
+          details: string | null
+          exam_session_id: string
+          id: string
+          occurred_at: string
+        }
+        Insert: {
+          activity_type: string
+          details?: string | null
+          exam_session_id: string
+          id?: string
+          occurred_at?: string
+        }
+        Update: {
+          activity_type?: string
+          details?: string | null
+          exam_session_id?: string
+          id?: string
+          occurred_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "security_activity_logs_exam_session_id_fkey"
+            columns: ["exam_session_id"]
+            isOneToOne: false
+            referencedRelation: "exam_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_admin: { Args: never; Returns: boolean }
+      owns_session: { Args: { session_id: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
