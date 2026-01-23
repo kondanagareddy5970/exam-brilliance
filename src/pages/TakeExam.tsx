@@ -15,12 +15,14 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAntiCheat } from "@/hooks/useAntiCheat";
 import { useWebcam, CapturedPhoto } from "@/hooks/useWebcam";
+import { useFaceDetection } from "@/hooks/useFaceDetection";
 import { AntiCheatWarning } from "@/components/exam/AntiCheatWarning";
 import { FullscreenPrompt } from "@/components/exam/FullscreenPrompt";
 import { SecurityStatusBar } from "@/components/exam/SecurityStatusBar";
 import { QuestionCard } from "@/components/exam/QuestionCard";
 import { QuestionNavigator } from "@/components/exam/QuestionNavigator";
 import { WebcamProctor } from "@/components/exam/WebcamProctor";
+import { FaceDetectionAlert } from "@/components/exam/FaceDetectionAlert";
 
 const mockQuestions = [
   {
@@ -76,6 +78,9 @@ const TakeExam = () => {
   
   // Webcam state
   const [webcamMinimized, setWebcamMinimized] = useState(false);
+  
+  // Face detection threshold (5 seconds without face triggers alert)
+  const FACE_DETECTION_THRESHOLD_MS = 5000;
 
   const handleForceSubmit = useCallback(() => {
     submitExam();
@@ -101,6 +106,52 @@ const TakeExam = () => {
     captureIntervalMs: 60000, // Capture every minute
     onPhotoCapture: handlePhotoCapture,
   });
+
+  // Face detection hook
+  const handleNoFaceDetected = useCallback(() => {
+    toast({
+      title: "⚠️ Face Not Detected",
+      description: "Please return to the camera frame immediately. This will be logged.",
+      variant: "destructive",
+    });
+  }, [toast]);
+
+  const handleFaceReturned = useCallback(() => {
+    toast({
+      title: "✓ Face Detected",
+      description: "You are visible in the camera again.",
+    });
+  }, [toast]);
+
+  const handleMultipleFaces = useCallback((count: number) => {
+    toast({
+      title: "⚠️ Multiple Faces Detected",
+      description: `${count} people detected. Only you should be visible during the exam.`,
+      variant: "destructive",
+    });
+  }, [toast]);
+
+  const {
+    faceCount,
+    noFaceAlertActive,
+    noFaceDuration,
+    isDetecting: isDetectingFace,
+    events: faceEvents,
+    attachVideo: attachFaceDetection,
+  } = useFaceDetection({
+    enabled: examStarted && webcamEnabled,
+    detectionIntervalMs: 2000,
+    noFaceThresholdMs: FACE_DETECTION_THRESHOLD_MS,
+    onNoFaceDetected: handleNoFaceDetected,
+    onFaceReturned: handleFaceReturned,
+    onMultipleFaces: handleMultipleFaces,
+  });
+
+  // Combined video ref handler
+  const handleVideoRef = useCallback((video: HTMLVideoElement) => {
+    attachToVideo(video);
+    attachFaceDetection(video);
+  }, [attachToVideo, attachFaceDetection]);
 
   const {
     isFullscreen,
@@ -318,11 +369,14 @@ const TakeExam = () => {
             {webcamMinimized && (
               <WebcamProctor
                 isEnabled={webcamEnabled}
-                onVideoRef={attachToVideo}
+                onVideoRef={handleVideoRef}
                 photoCount={photoCount}
                 error={webcamError}
                 minimized={true}
                 onToggleMinimize={() => setWebcamMinimized(false)}
+                faceCount={faceCount}
+                noFaceAlertActive={noFaceAlertActive}
+                isDetectingFace={isDetectingFace}
               />
             )}
             
@@ -373,15 +427,26 @@ const TakeExam = () => {
 
           {/* Sidebar */}
           <div className="space-y-4">
+            {/* Face Detection Alert */}
+            <FaceDetectionAlert
+              noFaceAlertActive={noFaceAlertActive}
+              noFaceDuration={noFaceDuration}
+              faceCount={faceCount}
+              thresholdMs={FACE_DETECTION_THRESHOLD_MS}
+            />
+            
             {/* Webcam Feed */}
             {!webcamMinimized && (
               <WebcamProctor
                 isEnabled={webcamEnabled}
-                onVideoRef={attachToVideo}
+                onVideoRef={handleVideoRef}
                 photoCount={photoCount}
                 error={webcamError}
                 className="aspect-[4/3]"
                 onToggleMinimize={() => setWebcamMinimized(true)}
+                faceCount={faceCount}
+                noFaceAlertActive={noFaceAlertActive}
+                isDetectingFace={isDetectingFace}
               />
             )}
             
