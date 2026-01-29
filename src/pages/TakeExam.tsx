@@ -23,6 +23,7 @@ import { QuestionCard } from "@/components/exam/QuestionCard";
 import { QuestionNavigator } from "@/components/exam/QuestionNavigator";
 import { WebcamProctor } from "@/components/exam/WebcamProctor";
 import { FaceDetectionAlert } from "@/components/exam/FaceDetectionAlert";
+import StudentVideoStream from "@/components/exam/StudentVideoStream";
 
 import mockQuestions from '@/data/workday-exam.json';
 
@@ -417,6 +418,15 @@ const TakeExam = () => {
 
           {/* Sidebar */}
           <div className="space-y-4">
+            {/* Live Video Streaming */}
+            <StudentVideoStream
+              examCode={examId || "workday"}
+              studentId={`student-${Date.now()}`}
+              examTitle={examId === "workday" ? "Workday Exam" : "Exam"}
+              onStreamStart={() => console.log("Student streaming started")}
+              onStreamStop={() => console.log("Student streaming stopped")}
+            />
+            
             {/* Face Detection Alert */}
             <FaceDetectionAlert
               noFaceAlertActive={noFaceAlertActive}

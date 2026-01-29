@@ -22,6 +22,17 @@ const AdminLogin = () => {
     e.preventDefault();
     setIsLoading(true);
 
+    // Simple validation
+    if (!formData.email || !formData.password) {
+      toast({
+        title: "Error",
+        description: "Please fill in all fields",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
     // Simulate admin login
     setTimeout(() => {
       toast({
@@ -30,7 +41,7 @@ const AdminLogin = () => {
       });
       setIsLoading(false);
       navigate("/admin/dashboard");
-    }, 1500);
+    }, 1000); // Reduced timeout for faster testing
   };
 
   return (
