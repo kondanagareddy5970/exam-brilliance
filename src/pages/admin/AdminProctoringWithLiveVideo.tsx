@@ -1,12 +1,21 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { 
   Camera, 
   Users, 
@@ -26,6 +35,7 @@ import {
   LogOut,
   RefreshCw,
   Lock,
+  Unlock,
   Monitor,
   User
 } from "lucide-react";
@@ -555,7 +565,7 @@ const AdminProctoringWithLiveVideo = () => {
                   {(() => {
                     const session = sessions.find(s => s.id === selectedSession);
                     if (!session) return null;
-                    const studentInfo = getStudentInfo(session);
+                    const studentInfo = getStudentInfo(session.student_id);
                     return (
                       <div className="space-y-3">
                         <div className="flex items-center gap-3">
@@ -613,12 +623,13 @@ const AdminProctoringWithLiveVideo = () => {
             {(() => {
               const session = sessions.find(s => s.student_id === fullscreenStudent);
               if (!session) return null;
-              const studentInfo = getStudentInfo(session);
+              const studentInfo = getStudentInfo(session.student_id);
+              const studentStream = remoteStreams.get(session.student_id);
               return (
                 <AdminVideoFeed
                   examCode={examCode}
-                  adminId={`admin-${Date.now()}`}
                   studentInfo={studentInfo}
+                  studentStream={studentStream}
                   isSelected={true}
                   onSelect={() => {}}
                   onFullscreen={() => setFullscreenStudent(null)}

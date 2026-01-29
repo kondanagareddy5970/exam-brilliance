@@ -28,34 +28,64 @@ export const useProctoring = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch active proctoring sessions
+  // Fetch active proctoring sessions using exam_sessions table
   const fetchSessions = async () => {
     try {
       const { data, error } = await supabase
-        .from("proctoring_sessions")
+        .from("exam_sessions")
         .select("*")
-        .eq("status", "active")
-        .order("started_at", { ascending: false });
+        .eq("submission_status", "in_progress")
+        .order("start_time", { ascending: false });
 
       if (error) throw error;
-      setSessions(data || []);
+      
+      // Transform data to match our interface
+      const transformedSessions: ProctoringSession[] = (data || []).map(session => ({
+        id: session.id,
+        student_id: session.user_id || "unknown",
+        exam_id: session.exam_id,
+        started_at: session.start_time,
+        ended_at: session.end_time || undefined,
+        status: session.submission_status === "in_progress" ? "active" as const : 
+                session.submission_status === "submitted" ? "completed" as const : "terminated" as const,
+        violation_count: session.violations_count || 0,
+        last_activity: session.start_time,
+      }));
+      
+      setSessions(transformedSessions);
     } catch (err) {
       console.error("Error fetching proctoring sessions:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch sessions");
     }
   };
 
-  // Fetch recent logs
+  // Fetch recent logs using security_activity_logs table
   const fetchLogs = async (limit: number = 50) => {
     try {
       const { data, error } = await supabase
-        .from("proctoring_logs")
+        .from("security_activity_logs")
         .select("*")
-        .order("created_at", { ascending: false })
+        .order("occurred_at", { ascending: false })
         .limit(limit);
 
       if (error) throw error;
-      setLogs(data || []);
+      
+      // Transform data to match our interface
+      const transformedLogs: ProctoringLog[] = (data || []).map(log => ({
+        id: log.id,
+        session_id: log.exam_session_id || "unknown",
+        student_id: log.exam_session_id || "unknown",
+        event_type: log.activity_type === "tab_switch" || log.activity_type === "window_focus_lost" 
+          ? "warning" as const
+          : log.activity_type === "multiple_faces" 
+          ? "violation" as const
+          : "info" as const,
+        message: log.details || log.activity_type,
+        metadata: {},
+        created_at: log.occurred_at,
+      }));
+      
+      setLogs(transformedLogs);
     } catch (err) {
       console.error("Error fetching proctoring logs:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch logs");
@@ -66,13 +96,13 @@ export const useProctoring = () => {
   const createSession = async (studentId: string, examId: string) => {
     try {
       const { data, error } = await supabase
-        .from("proctoring_sessions")
+        .from("exam_sessions")
         .insert({
-          student_id: studentId,
+          user_id: studentId,
           exam_id: examId,
-          status: "active",
-          violation_count: 0,
-          last_activity: new Date().toISOString(),
+          exam_title: examId,
+          submission_status: "in_progress",
+          violations_count: 0,
         })
         .select()
         .single();
@@ -99,33 +129,32 @@ export const useProctoring = () => {
   ) => {
     try {
       const { error } = await supabase
-        .from("proctoring_logs")
+        .from("security_activity_logs")
         .insert({
-          session_id: sessionId,
-          student_id: studentId,
-          event_type: eventType,
-          message,
-          metadata,
+          exam_session_id: sessionId,
+          activity_type: eventType === "violation" ? "multiple_faces" : 
+                         eventType === "warning" ? "tab_switch" : "face_detected",
+          details: message,
         });
 
       if (error) throw error;
 
-      // Update session last activity and violation count
+      // Update session violation count if it's a violation
       if (eventType === "violation") {
-        await supabase
-          .from("proctoring_sessions")
-          .update({ 
-            violation_count: supabase.rpc('increment', { count: 1 }),
-            last_activity: new Date().toISOString()
-          })
-          .eq("id", sessionId);
-      } else {
-        await supabase
-          .from("proctoring_sessions")
-          .update({ 
-            last_activity: new Date().toISOString()
-          })
-          .eq("id", sessionId);
+        const { data: currentSession } = await supabase
+          .from("exam_sessions")
+          .select("violations_count")
+          .eq("id", sessionId)
+          .single();
+        
+        if (currentSession) {
+          await supabase
+            .from("exam_sessions")
+            .update({ 
+              violations_count: (currentSession.violations_count || 0) + 1 
+            })
+            .eq("id", sessionId);
+        }
       }
 
       // Refresh logs
@@ -140,10 +169,10 @@ export const useProctoring = () => {
   const endSession = async (sessionId: string) => {
     try {
       const { error } = await supabase
-        .from("proctoring_sessions")
+        .from("exam_sessions")
         .update({ 
-          status: "completed",
-          ended_at: new Date().toISOString()
+          submission_status: "submitted",
+          end_time: new Date().toISOString()
         })
         .eq("id", sessionId);
 
@@ -161,10 +190,10 @@ export const useProctoring = () => {
   const terminateSession = async (sessionId: string, reason?: string) => {
     try {
       const { error } = await supabase
-        .from("proctoring_sessions")
+        .from("exam_sessions")
         .update({ 
-          status: "terminated",
-          ended_at: new Date().toISOString()
+          submission_status: "terminated",
+          end_time: new Date().toISOString()
         })
         .eq("id", sessionId);
 
@@ -186,20 +215,34 @@ export const useProctoring = () => {
     }
   };
 
-  // Real-time subscription to proctoring logs
+  // Real-time subscription to security activity logs
   const subscribeToLogs = (sessionId?: string) => {
     const channel = supabase
-      .channel("proctoring_logs")
+      .channel("security_activity_logs_changes")
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
-          table: "proctoring_logs",
-          filter: sessionId ? `session_id=eq.${sessionId}` : undefined,
+          table: "security_activity_logs",
+          filter: sessionId ? `exam_session_id=eq.${sessionId}` : undefined,
         },
         (payload) => {
-          setLogs(prev => [payload.new as ProctoringLog, ...prev].slice(0, 50));
+          const log = payload.new as { id: string; exam_session_id: string; activity_type: string; details: string | null; occurred_at: string };
+          const newLog: ProctoringLog = {
+            id: log.id,
+            session_id: log.exam_session_id || "unknown",
+            student_id: log.exam_session_id || "unknown",
+            event_type: log.activity_type === "tab_switch" || log.activity_type === "window_focus_lost" 
+              ? "warning" 
+              : log.activity_type === "multiple_faces" 
+              ? "violation" 
+              : "info",
+            message: log.details || log.activity_type,
+            metadata: {},
+            created_at: log.occurred_at,
+          };
+          setLogs(prev => [newLog, ...prev].slice(0, 50));
         }
       )
       .subscribe();
@@ -212,26 +255,17 @@ export const useProctoring = () => {
   // Real-time subscription to sessions
   const subscribeToSessions = () => {
     const channel = supabase
-      .channel("proctoring_sessions")
+      .channel("exam_sessions_changes")
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
-          table: "proctoring_sessions",
+          table: "exam_sessions",
         },
-        (payload) => {
-          if (payload.eventType === "INSERT") {
-            setSessions(prev => [payload.new as ProctoringSession, ...prev]);
-          } else if (payload.eventType === "UPDATE") {
-            setSessions(prev => 
-              prev.map(session => 
-                session.id === payload.new.id ? payload.new as ProctoringSession : session
-              )
-            );
-          } else if (payload.eventType === "DELETE") {
-            setSessions(prev => prev.filter(session => session.id !== payload.old.id));
-          }
+        () => {
+          // Refetch sessions on any change
+          fetchSessions();
         }
       )
       .subscribe();
