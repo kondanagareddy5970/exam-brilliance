@@ -1,45 +1,42 @@
 import React, { useRef, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { 
-  Video, 
-  VideoOff, 
-  Mic, 
-  MicOff, 
-  AlertTriangle,
+  Maximize2, 
+  Volume2, 
+  VolumeX, 
+  Wifi, 
+  WifiOff, 
+  User,
+  Shield,
+  Eye,
   CheckCircle,
-  Camera,
-  Wifi,
-  WifiOff,
-  Monitor,
-  Maximize2,
-  Volume2,
-  VolumeX
+  AlertTriangle,
+  Camera
 } from "lucide-react";
 import { useWebRTCProctoring } from "@/hooks/useWebRTCProctoring";
 
 interface AdminVideoFeedProps {
   examCode: string;
-  adminId: string;
   studentInfo: {
     id: string;
     name: string;
     examTitle: string;
-    status: 'active' | 'completed' | 'terminated';
+    status: string;
     violations: number;
     lastSeen: string;
   };
-  isSelected?: boolean;
-  onSelect?: (studentId: string) => void;
-  onFullscreen?: (studentId: string) => void;
+  studentStream?: MediaStream;
+  isSelected: boolean;
+  onSelect: (studentId: string) => void;
+  onFullscreen: (studentId: string) => void;
 }
 
-const AdminVideoFeed: React.FC<AdminVideoFeedProps> = ({
+export const AdminVideoFeed: React.FC<AdminVideoFeedProps> = ({
   examCode,
-  adminId,
   studentInfo,
+  studentStream,
   isSelected = false,
   onSelect,
   onFullscreen
@@ -49,22 +46,10 @@ const AdminVideoFeed: React.FC<AdminVideoFeedProps> = ({
   const [isMuted, setIsMuted] = useState(true);
   const [connectionQuality, setConnectionQuality] = useState<'excellent' | 'good' | 'poor' | 'none'>('none');
   const [streamStats, setStreamStats] = useState({
-    resolution: 'Unknown',
-    fps: 'Unknown',
-    bitrate: 'Unknown'
+    resolution: '1920x1080',
+    fps: '30',
+    bitrate: '2.5 Mbps'
   });
-
-  const {
-    remoteStreams,
-    connectedUsers,
-    isInitialized,
-    startStreaming,
-    stopStreaming,
-    cleanup
-  } = useWebRTCProctoring(examCode, adminId, true);
-
-  // Get the specific student's stream
-  const studentStream = remoteStreams.get(studentInfo.id);
 
   // Set remote video stream
   useEffect(() => {
@@ -165,14 +150,12 @@ const AdminVideoFeed: React.FC<AdminVideoFeedProps> = ({
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Avatar className="h-8 w-8">
-              <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
-                {getInitials(studentInfo.name)}
-              </AvatarFallback>
-            </Avatar>
+            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+              <User className="h-5 w-5 text-primary" />
+            </div>
             <div>
-              <CardTitle className="text-sm font-medium">{studentInfo.name}</CardTitle>
-              <p className="text-xs text-muted-foreground">{studentInfo.examTitle}</p>
+              <h4 className="font-medium">{studentInfo.name}</h4>
+              <p className="text-sm text-muted-foreground">{studentInfo.examTitle}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">

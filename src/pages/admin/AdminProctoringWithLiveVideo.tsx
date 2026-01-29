@@ -1,33 +1,36 @@
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { 
-  Video, 
-  VideoOff, 
+  Camera, 
+  Users, 
   AlertTriangle, 
-  CheckCircle, 
-  Eye, 
-  EyeOff, 
-  LogOut, 
-  User,
-  Monitor,
-  Clock,
-  Camera,
-  Wifi,
-  WifiOff,
-  Lock,
-  Unlock,
-  Shield,
+  Shield, 
+  Activity,
+  Eye,
+  EyeOff,
   Maximize2,
   Volume2,
-  VolumeX
+  VolumeX,
+  Wifi,
+  WifiOff,
+  Clock,
+  CheckCircle,
+  XCircle,
+  LogOut,
+  RefreshCw,
+  Lock,
+  Monitor,
+  User
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { AdminVideoFeed } from "@/components/admin/AdminVideoFeed";
 import { useWebRTCProctoring } from "@/hooks/useWebRTCProctoring";
-import AdminVideoFeed from "@/components/admin/AdminVideoFeed";
 
 interface ProctoringSession {
   id: string;
@@ -475,17 +478,20 @@ const AdminProctoringWithLiveVideo = () => {
               </div>
             ) : (
               <div className="grid md:grid-cols-2 gap-4">
-                {getActiveStudents().map((studentInfo) => (
-                  <AdminVideoFeed
-                    key={studentInfo.id}
-                    examCode={examCode}
-                    adminId={`admin-${Date.now()}`}
-                    studentInfo={studentInfo}
-                    isSelected={selectedSession === studentInfo.id}
-                    onSelect={setSelectedSession}
-                    onFullscreen={setFullscreenStudent}
-                  />
-                ))}
+                {getActiveStudents().map((studentInfo) => {
+                  const studentStream = remoteStreams.get(studentInfo.id);
+                  return (
+                    <AdminVideoFeed
+                      key={studentInfo.id}
+                      examCode={examCode}
+                      studentInfo={studentInfo}
+                      studentStream={studentStream}
+                      isSelected={selectedSession === studentInfo.id}
+                      onSelect={setSelectedSession}
+                      onFullscreen={setFullscreenStudent}
+                    />
+                  );
+                })}
                 
                 {getActiveStudents().length === 0 && (
                   <div className="col-span-2 text-center py-12">
