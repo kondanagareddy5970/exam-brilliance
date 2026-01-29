@@ -33,7 +33,9 @@ io.on('connection', (socket) => {
   socket.on('join-room', ({ roomId, role }) => {
     socket.join(roomId);
     socket.role = role;
-    io.to(roomId).emit('user-joined', { userId: socket.user.id, role });
+    // For demo, use email as userId if present, else socket.id
+    const userId = socket.user?.email || socket.id;
+    io.to(roomId).emit('user-joined', { userId, role });
   });
 
   socket.on('signal', ({ roomId, data, to }) => {

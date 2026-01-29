@@ -19,7 +19,6 @@ import ExamRegister from "./pages/ExamRegister";
 import ExamInstructions from "./pages/ExamInstructions";
 import TakeExam from "./pages/TakeExam";
 import ExamResults from "./pages/ExamResults";
-import AdminDashboard from "./pages/admin/Dashboard";
 import AdminExams from "./pages/admin/Exams";
 import AdminStudents from "./pages/admin/Students";
 import CreateExam from "./pages/admin/CreateExam";
@@ -85,9 +84,11 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <AppContent />
-      </BrowserRouter>
+      <AuthProvider>
+        <BrowserRouter>
+          <AppContent />
+        </BrowserRouter>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
