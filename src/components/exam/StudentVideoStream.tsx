@@ -60,6 +60,7 @@ const StudentVideoStream: React.FC<StudentVideoStreamProps> = ({
       setError("");
       setConnectionStatus('connecting');
       
+      console.log(`[${studentId}] Starting WebRTC stream for exam: ${examCode}`);
       await startStreaming();
       setIsStreaming(true);
       setConnectionStatus('connected');
@@ -68,11 +69,11 @@ const StudentVideoStream: React.FC<StudentVideoStreamProps> = ({
         onStreamStart();
       }
       
-      console.log(`Student ${studentId} started streaming for exam ${examCode}`);
+      console.log(`[${studentId}] Stream started successfully! Admin should be able to see this stream.`);
     } catch (err) {
+      console.error(`[${studentId}] Stream start error:`, err);
       setError("Failed to start camera. Please ensure camera permissions are granted.");
       setConnectionStatus('disconnected');
-      console.error("Stream start error:", err);
     }
   };
 
@@ -142,6 +143,7 @@ const StudentVideoStream: React.FC<StudentVideoStreamProps> = ({
             <div>
               <h3 className="font-semibold">{examTitle}</h3>
               <p className="text-sm text-muted-foreground">Student ID: {studentId}</p>
+              <p className="text-xs text-muted-foreground">Exam Code: {examCode}</p>
             </div>
             {getStatusBadge()}
           </div>

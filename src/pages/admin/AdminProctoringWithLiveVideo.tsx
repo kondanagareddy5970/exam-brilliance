@@ -72,6 +72,12 @@ const AdminProctoringWithLiveVideo = () => {
     cleanup
   } = useWebRTCProctoring(examCode, `admin-${Date.now()}`, true);
 
+  // Update connected users when remote streams change
+  useEffect(() => {
+    console.log(`[Admin] Connected users updated:`, Array.from(connectedUsers));
+    console.log(`[Admin] Remote streams:`, Array.from(remoteStreams.keys()));
+  }, [connectedUsers, remoteStreams]);
+
   // Fetch sessions and logs for a specific exam code
   const fetchProctoringData = async (code: string) => {
     try {
@@ -158,9 +164,9 @@ const AdminProctoringWithLiveVideo = () => {
     // Start admin streaming
     try {
       await startStreaming();
-      console.log("Admin streaming started for exam:", examCode);
+      console.log(`[Admin] Admin streaming started for exam: ${examCode}`);
     } catch (err) {
-      console.error("Failed to start admin streaming:", err);
+      console.error(`[Admin] Failed to start admin streaming:`, err);
     }
   };
 
@@ -240,15 +246,64 @@ const AdminProctoringWithLiveVideo = () => {
     return names[examId] || examId.toUpperCase();
   };
 
-  // Create student info for video feeds
-  const getStudentInfo = (session: ProctoringSession) => ({
-    id: session.student_id,
-    name: getStudentName(session.student_id),
-    examTitle: getExamName(session.exam_id),
-    status: session.status,
-    violations: session.violation_count,
-    lastSeen: formatTime(session.last_activity),
-  });
+  // Create student info for video feeds - prioritize WebRTC streams over database sessions
+  const getStudentInfo = (studentId: string, stream?: MediaStream) => {
+    // First try to find in database sessions
+    const dbSession = sessions.find(s => s.student_id === studentId);
+    
+    // If found in database, use that info
+    if (dbSession) {
+      return {
+        id: dbSession.student_id,
+        name: getStudentName(dbSession.student_id),
+        examTitle: getExamName(dbSession.exam_id),
+        status: dbSession.status,
+        violations: dbSession.violation_count,
+        lastSeen: formatTime(dbSession.last_activity),
+      };
+    }
+    
+    // If not in database but has active stream, create basic info
+    if (stream) {
+      return {
+        id: studentId,
+        name: getStudentName(studentId),
+        examTitle: getExamName(examCode),
+        status: 'active' as const,
+        violations: 0,
+        lastSeen: formatTime(new Date().toISOString()),
+      };
+    }
+    
+    // Fallback
+    return {
+      id: studentId,
+      name: getStudentName(studentId),
+      examTitle: getExamName(examCode),
+      status: 'active' as const,
+      violations: 0,
+      lastSeen: formatTime(new Date().toISOString()),
+    };
+  };
+
+  // Get all active students (combine database sessions with WebRTC streams)
+  const getActiveStudents = () => {
+    const activeStudents = new Map();
+    
+    // Add students from WebRTC streams (highest priority)
+    remoteStreams.forEach((stream, studentId) => {
+      activeStudents.set(studentId, getStudentInfo(studentId, stream));
+    });
+    
+    // Add students from database sessions
+    sessions.forEach(session => {
+      if (session.status === 'active' && !activeStudents.has(session.student_id)) {
+        activeStudents.set(session.student_id, getStudentInfo(session.student_id));
+      }
+    });
+    
+    return Array.from(activeStudents.values());
+  };
 
   // If not authenticated, show code entry screen
   if (!isAuthenticated) {
@@ -397,7 +452,7 @@ const AdminProctoringWithLiveVideo = () => {
           {/* Video Feeds */}
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-semibold">Live Student Feeds ({sessions.filter(s => s.status === 'active').length})</h2>
+              <h2 className="text-2xl font-semibold">Live Student Feeds ({getActiveStudents().length})</h2>
               <div className="flex items-center gap-2">
                 <Shield className="h-4 w-4 text-primary" />
                 <span className="text-sm text-muted-foreground">Secure Monitoring</span>
@@ -420,24 +475,27 @@ const AdminProctoringWithLiveVideo = () => {
               </div>
             ) : (
               <div className="grid md:grid-cols-2 gap-4">
-                {sessions.map((session) => (
+                {getActiveStudents().map((studentInfo) => (
                   <AdminVideoFeed
-                    key={session.id}
+                    key={studentInfo.id}
                     examCode={examCode}
                     adminId={`admin-${Date.now()}`}
-                    studentInfo={getStudentInfo(session)}
-                    isSelected={selectedSession === session.id}
+                    studentInfo={studentInfo}
+                    isSelected={selectedSession === studentInfo.id}
                     onSelect={setSelectedSession}
                     onFullscreen={setFullscreenStudent}
                   />
                 ))}
                 
-                {sessions.length === 0 && (
+                {getActiveStudents().length === 0 && (
                   <div className="col-span-2 text-center py-12">
                     <Camera className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                    <h3 className="text-lg font-medium mb-2">No Active Sessions</h3>
+                    <h3 className="text-lg font-medium mb-2">No Active Streams</h3>
                     <p className="text-muted-foreground">
-                      No students are currently taking this exam
+                      Waiting for students to start streaming...
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Connected Users: {Array.from(connectedUsers).join(', ') || 'None'}
                     </p>
                   </div>
                 )}

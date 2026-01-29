@@ -46,6 +46,9 @@ const TakeExam = () => {
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
+  // Generate consistent student ID for this exam session
+  const [studentId] = useState(() => `student-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
+  
   // Anti-cheat state
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(true);
   const [showSecurityWarning, setShowSecurityWarning] = useState(false);
@@ -421,7 +424,7 @@ const TakeExam = () => {
             {/* Live Video Streaming */}
             <StudentVideoStream
               examCode={examId || "workday"}
-              studentId={`student-${Date.now()}`}
+              studentId={studentId}
               examTitle={examId === "workday" ? "Workday Exam" : "Exam"}
               onStreamStart={() => console.log("Student streaming started")}
               onStreamStop={() => console.log("Student streaming stopped")}

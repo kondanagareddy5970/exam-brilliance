@@ -11,6 +11,10 @@ interface WebRTCManager {
   addRemoteStream: (userId: string, stream: MediaStream) => void;
   removeRemoteStream: (userId: string) => void;
   cleanup: () => void;
+  createOffer: (userId: string) => Promise<void>;
+  handleOffer: (userId: string, offer: RTCSessionDescriptionInit) => Promise<void>;
+  handleAnswer: (userId: string, answer: RTCSessionDescriptionInit) => Promise<void>;
+  handleIceCandidate: (userId: string, candidate: RTCIceCandidateInit) => Promise<void>;
 }
 
 export const useWebRTC = (): WebRTCManager => {
@@ -271,15 +275,9 @@ export const useWebRTC = (): WebRTCManager => {
     addRemoteStream,
     removeRemoteStream,
     cleanup,
-    // Additional methods for signaling
     createOffer,
     handleOffer,
     handleAnswer,
     handleIceCandidate,
-  } as WebRTCManager & {
-    createOffer: (userId: string) => Promise<void>;
-    handleOffer: (userId: string, offer: RTCSessionDescriptionInit) => Promise<void>;
-    handleAnswer: (userId: string, answer: RTCSessionDescriptionInit) => Promise<void>;
-    handleIceCandidate: (userId: string, candidate: RTCIceCandidateInit) => Promise<void>;
   };
 };

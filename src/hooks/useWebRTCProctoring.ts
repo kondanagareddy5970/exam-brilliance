@@ -70,9 +70,11 @@ export const useWebRTCProctoring = (examCode: string, userId: string, isAdmin: b
 
   // Handle incoming signaling messages
   const handleSignalingMessage = (payload: any) => {
-    if (payload.to !== userId) return; // Ignore messages not meant for this user
+    // Handle messages sent to 'all' or specifically to this user
+    if (payload.to !== 'all' && payload.to !== userId) return;
 
     const { from, message } = payload;
+    console.log(`[${isAdmin ? 'Admin' : 'Student'}] Received signaling from ${from}:`, message);
 
     switch (message.type) {
       case 'offer':
@@ -87,10 +89,15 @@ export const useWebRTCProctoring = (examCode: string, userId: string, isAdmin: b
       case 'user-joined':
         if (isAdmin && from !== userId) {
           // Admin creates offer when student joins
+          console.log(`Admin detected student ${from} joined, creating offer...`);
           setTimeout(() => {
             webrtc.createOffer(from);
           }, 1000);
         }
+        break;
+      case 'user-left':
+        console.log(`User ${from} left the session`);
+        webrtc.removeRemoteStream(from);
         break;
     }
   };
@@ -98,29 +105,34 @@ export const useWebRTCProctoring = (examCode: string, userId: string, isAdmin: b
   // Start streaming and announce presence
   const startStreaming = async () => {
     try {
+      console.log(`[${isAdmin ? 'Admin' : 'Student'}] Starting WebRTC setup for exam: ${examCode}, userId: ${userId}`);
       await webrtc.startLocalStream();
       
       // Announce that user has joined
       if (signalingChannel) {
+        const joinPayload = {
+          from: userId,
+          to: 'all',
+          examCode,
+          message: {
+            type: 'user-joined',
+            userId,
+            isAdmin
+          },
+          timestamp: Date.now()
+        };
+        
+        console.log(`[${isAdmin ? 'Admin' : 'Student'}] Broadcasting join message:`, joinPayload);
+        
         signalingChannel.send({
           event: 'signaling',
-          payload: {
-            from: userId,
-            to: 'all',
-            examCode,
-            message: {
-              type: 'user-joined',
-              userId,
-              isAdmin
-            },
-            timestamp: Date.now()
-          }
+          payload: joinPayload
         });
       }
 
-      console.log(`${isAdmin ? 'Admin' : 'Student'} started streaming for exam:`, examCode);
+      console.log(`[${isAdmin ? 'Admin' : 'Student'}] Streaming started successfully for exam: ${examCode}`);
     } catch (error) {
-      console.error('Failed to start streaming:', error);
+      console.error(`[${isAdmin ? 'Admin' : 'Student'}] Failed to start streaming:`, error);
       throw error;
     }
   };

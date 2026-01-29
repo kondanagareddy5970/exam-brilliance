@@ -68,10 +68,14 @@ const AdminVideoFeed: React.FC<AdminVideoFeedProps> = ({
 
   // Set remote video stream
   useEffect(() => {
+    console.log(`[AdminFeed] Stream update for ${studentInfo.id}:`, !!studentStream);
+    
     if (remoteVideoRef.current && studentStream) {
       remoteVideoRef.current.srcObject = studentStream;
       setIsConnected(true);
       setConnectionQuality('good'); // Would calculate actual quality in production
+      
+      console.log(`[AdminFeed] Successfully set video stream for ${studentInfo.name}`);
       
       // Get stream stats
       const videoTrack = studentStream.getVideoTracks()[0];
@@ -89,8 +93,9 @@ const AdminVideoFeed: React.FC<AdminVideoFeedProps> = ({
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = null;
       }
+      console.log(`[AdminFeed] No stream available for ${studentInfo.name}`);
     }
-  }, [studentStream]);
+  }, [studentStream, studentInfo.name]);
 
   // Toggle audio
   const toggleAudio = () => {
