@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import ProfileIndicator from "@/components/ProfileIndicator";
 import { GraduationCap, Menu, X } from "lucide-react";
 import { useState } from "react";
 
@@ -42,12 +43,13 @@ const Header = () => {
 
         {/* Desktop Auth Buttons */}
         <div className="hidden md:flex items-center gap-3">
-          <Button variant="ghost" asChild>
-            <Link to="/login">Sign In</Link>
-          </Button>
-          <Button variant="hero" asChild>
-            <Link to="/register">Get Started</Link>
-          </Button>
+          <ProfileIndicator 
+            user={{
+              name: "Student User",
+              email: "student@example.com",
+              role: "student",
+            }}
+          />
         </div>
 
         {/* Mobile Menu Button */}

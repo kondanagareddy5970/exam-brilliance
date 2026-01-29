@@ -19,9 +19,12 @@ import ExamResults from "./pages/ExamResults";
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminExams from "./pages/admin/Exams";
 import AdminStudents from "./pages/admin/Students";
+import AdminProctoring from "./pages/admin/Proctoring";
+import AdminProctoringWithCode from "./pages/admin/ProctoringWithCode";
 import CreateExam from "./pages/admin/CreateExam";
 import ManageQuestions from "./pages/admin/ManageQuestions";
 import ExportResults from "./pages/admin/ExportResults";
+import AdminDashboardEnhanced from "./pages/admin/DashboardEnhanced";
 import About from "./pages/About";
 import NotFound from "./pages/NotFound";
 
@@ -55,9 +58,10 @@ const AppContent = () => {
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/admin/login" element={<AdminLogin />} />
-        <Route path="/admin/dashboard" element={<AdminDashboard />} />
+        <Route path="/admin/dashboard" element={<AdminDashboardEnhanced />} />
 <Route path="/admin/exams" element={<AdminExams />} />
 <Route path="/admin/students" element={<AdminStudents />} />
+<Route path="/admin/proctoring" element={<AdminProctoringWithCode />} />
         <Route path="/admin/exams/create" element={<CreateExam />} />
         <Route path="/admin/questions" element={<ManageQuestions />} />
         <Route path="/admin/results" element={<ExportResults />} />

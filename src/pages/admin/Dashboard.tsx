@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import ProfileIndicator from "@/components/ProfileIndicator";
 import { 
   Users, 
   FileText, 
@@ -41,9 +42,18 @@ const AdminDashboard = () => {
           <div className="font-display font-bold text-xl">Admin Dashboard</div>
           <div className="flex items-center gap-4">
             <Button variant="outline" asChild>
+              <Link to="/admin/proctoring">Live Proctoring</Link>
+            </Button>
+            <Button variant="outline" asChild>
               <Link to="/">View Site</Link>
             </Button>
-            <Button variant="ghost" size="sm">Logout</Button>
+            <ProfileIndicator 
+              user={{
+                name: "Admin User",
+                email: "admin@examportal.com",
+                role: "admin",
+              }}
+            />
           </div>
         </div>
       </header>
