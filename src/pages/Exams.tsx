@@ -47,6 +47,16 @@ const Exams = () => {
       date: "2024-02-20",
       status: "upcoming",
     },
+    {
+      id: "workday",
+      title: "Workday Exam",
+      subject: "Workday",
+      duration: 30,
+      questions: 4,
+      participants: 0,
+      date: new Date().toISOString().split("T")[0],
+      status: "upcoming",
+    },
   ];
 
   const getStatusBadge = (status: string) => {

@@ -31,6 +31,7 @@ const ExamRegister = () => {
     "English Literature",
     "Business Administration",
     "Economics",
+    "Workday",
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {

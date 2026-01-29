@@ -20,11 +20,11 @@ const ExamInstructions = () => {
   const [accepted, setAccepted] = useState(false);
 
   const examDetails = {
-    title: "Mathematics Final Exam",
-    duration: 120,
-    totalQuestions: 50,
-    totalMarks: 100,
-    passingMarks: 40,
+    title: "Workday Exam",
+    duration: 30,
+    totalQuestions: 4,
+    totalMarks: 40,
+    passingMarks: 20,
   };
 
   const rules = [

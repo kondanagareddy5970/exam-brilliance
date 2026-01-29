@@ -1,0 +1,42 @@
+[
+  {
+    "question": "What is a Report Data Source (RDS) in Workday reporting?",
+    "options": [
+      "The visual layout of a report",
+      "The tables and fields that supply the rows displayed in a report",
+      "The security groups that can view a report",
+      "The default sort order for a report"
+    ],
+    "correct": 1
+  },
+  {
+    "question": "How does a Primary Business Object (PBO) differ from a Related Business Object (RBO)?",
+    "options": [
+      "A PBO is always numeric, while an RBO is text",
+      "A PBO drives each row of the report; an RBO provides additional linked data",
+      "A PBO can only be a Worker object, whereas an RBO can be any object",
+      "A PBO is optional, but an RBO is required for every report"
+    ],
+    "correct": 1
+  },
+  {
+    "question": "Which component defines the column definitions that can be selected for a report?",
+    "options": [
+      "Prompt Configuration",
+      "Class Report Field (CRF)",
+      "Security Domain",
+      "Data Source Filter"
+    ],
+    "correct": 1
+  },
+  {
+    "question": "What does the term “Instance” refer to in the context of a Workday report?",
+    "options": [
+      "A saved version of the report definition",
+      "Each row returned by the report, representing one PBO record",
+      "The user who runs the report",
+      "The database server processing the request"
+    ],
+    "correct": 1
+  }
+]

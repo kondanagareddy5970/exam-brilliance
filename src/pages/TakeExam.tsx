@@ -24,38 +24,14 @@ import { QuestionNavigator } from "@/components/exam/QuestionNavigator";
 import { WebcamProctor } from "@/components/exam/WebcamProctor";
 import { FaceDetectionAlert } from "@/components/exam/FaceDetectionAlert";
 
-const mockQuestions = [
-  {
-    id: 1,
-    question: "What is the derivative of x²?",
-    options: ["x", "2x", "x²", "2x²"],
-    correctAnswer: 1,
-  },
-  {
-    id: 2,
-    question: "What is the integral of 2x?",
-    options: ["x", "x²", "2x²", "x² + C"],
-    correctAnswer: 3,
-  },
-  {
-    id: 3,
-    question: "What is the value of sin(90°)?",
-    options: ["0", "1", "-1", "0.5"],
-    correctAnswer: 1,
-  },
-  {
-    id: 4,
-    question: "What is the formula for the area of a circle?",
-    options: ["2πr", "πr²", "πd", "2πr²"],
-    correctAnswer: 1,
-  },
-  {
-    id: 5,
-    question: "What is 15% of 200?",
-    options: ["20", "25", "30", "35"],
-    correctAnswer: 2,
-  },
-];
+import mockQuestions from '@/data/workday-exam.json';
+
+interface Question {
+  id: number;
+  question: string;
+  options: string[];
+  correctAnswer: number;
+}
 
 const TakeExam = () => {
   const { examId } = useParams();
@@ -65,7 +41,7 @@ const TakeExam = () => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [flagged, setFlagged] = useState<Set<number>>(new Set());
-  const [timeLeft, setTimeLeft] = useState(120 * 60);
+  const [timeLeft, setTimeLeft] = useState(30 * 60);
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -279,6 +255,10 @@ const TakeExam = () => {
     setAnswers((prev) => ({ ...prev, [questionId]: optionIndex }));
   };
 
+  const handleSelect = (optionIndex: number) => {
+    handleAnswerSelect(questionId, optionIndex);
+  };
+
   const toggleFlag = (questionId: number) => {
     setFlagged((prev) => {
       const next = new Set(prev);
@@ -289,6 +269,10 @@ const TakeExam = () => {
       }
       return next;
     });
+  };
+
+  const handleToggleFlag = () => {
+    toggleFlag(questionId);
   };
 
   const handleAutoSubmit = useCallback(() => {
@@ -303,8 +287,8 @@ const TakeExam = () => {
   const submitExam = () => {
     setIsSubmitting(true);
     let correct = 0;
-    mockQuestions.forEach((q) => {
-      if (answers[q.id] === q.correctAnswer) {
+    mockQuestions.forEach((q, idx) => {
+      if (answers[idx] === q.correct) {
         correct++;
       }
     });
@@ -321,7 +305,7 @@ const TakeExam = () => {
           score: correct, 
           total: mockQuestions.length,
           answers,
-          questions: mockQuestions,
+          questions: mockQuestions.map((q, idx) => ({ ...q, id: idx, correctAnswer: q.correct })),
           activityLogs,
           violations,
           proctorPhotos: capturedPhotos.length,
@@ -330,7 +314,13 @@ const TakeExam = () => {
     }, 1500);
   };
 
-  const question = mockQuestions[currentQuestion];
+  const questionId = currentQuestion;
+  const question: Question = {
+    id: questionId,
+    question: mockQuestions[currentQuestion].question,
+    options: mockQuestions[currentQuestion].options,
+    correctAnswer: mockQuestions[currentQuestion].correct,
+  };
   const answeredCount = Object.keys(answers).length;
   const progress = (answeredCount / mockQuestions.length) * 100;
   const isUrgent = timeLeft <= 300;
@@ -362,7 +352,7 @@ const TakeExam = () => {
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-card/95 backdrop-blur">
         <div className="container flex h-16 items-center justify-between">
-          <div className="font-display font-semibold">Mathematics Final Exam</div>
+          <div className="font-display font-semibold">Workday Exam</div>
           
           <div className="flex items-center gap-4">
             {/* Webcam status indicator (minimized) */}
@@ -413,10 +403,10 @@ const TakeExam = () => {
               question={question}
               questionIndex={currentQuestion}
               totalQuestions={mockQuestions.length}
-              selectedAnswer={answers[question.id]}
-              isFlagged={flagged.has(question.id)}
-              onAnswerSelect={handleAnswerSelect}
-              onToggleFlag={toggleFlag}
+              selectedAnswer={answers[questionId]}
+              isFlagged={flagged.has(questionId)}
+              onAnswerSelect={handleSelect}
+              onToggleFlag={handleToggleFlag}
               onPrevious={() => setCurrentQuestion((prev) => prev - 1)}
               onNext={() => setCurrentQuestion((prev) => prev + 1)}
               onSubmit={() => setShowSubmitDialog(true)}
@@ -451,7 +441,7 @@ const TakeExam = () => {
             )}
             
             <QuestionNavigator
-              questions={mockQuestions}
+              questions={mockQuestions.map((q, idx) => ({ id: idx, question: q.question, options: q.options, correctAnswer: q.correct }))}
               currentQuestion={currentQuestion}
               answers={answers}
               flagged={flagged}
