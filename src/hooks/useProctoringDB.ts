@@ -45,9 +45,9 @@ export const useProctoring = () => {
         student_id: session.user_id || "unknown",
         exam_id: session.exam_id,
         started_at: session.start_time,
-        ended_at: session.end_time,
-        status: session.submission_status === "in_progress" ? "active" : 
-                session.submission_status === "submitted" ? "completed" : "terminated",
+        ended_at: session.end_time || undefined,
+        status: session.submission_status === "in_progress" ? "active" as const : 
+                session.submission_status === "submitted" ? "completed" as const : "terminated" as const,
         violation_count: session.violations_count || 0,
         last_activity: session.start_time,
       }));
@@ -65,7 +65,7 @@ export const useProctoring = () => {
       const { data, error } = await supabase
         .from("security_activity_logs")
         .select("*")
-        .order("created_at", { ascending: false })
+        .order("occurred_at", { ascending: false })
         .limit(limit);
 
       if (error) throw error;
@@ -73,16 +73,16 @@ export const useProctoring = () => {
       // Transform data to match our interface
       const transformedLogs: ProctoringLog[] = (data || []).map(log => ({
         id: log.id,
-        session_id: log.user_id || "unknown",
-        student_id: log.user_id || "unknown",
+        session_id: log.exam_session_id || "unknown",
+        student_id: log.exam_session_id || "unknown",
         event_type: log.activity_type === "tab_switch" || log.activity_type === "window_focus_lost" 
-          ? "warning" 
+          ? "warning" as const
           : log.activity_type === "multiple_faces" 
-          ? "violation" 
-          : "info",
+          ? "violation" as const
+          : "info" as const,
         message: log.details || log.activity_type,
-        metadata: log.metadata,
-        created_at: log.created_at,
+        metadata: {},
+        created_at: log.occurred_at,
       }));
       
       setLogs(transformedLogs);
@@ -104,11 +104,10 @@ export const useProctoring = () => {
       const { error } = await supabase
         .from("security_activity_logs")
         .insert({
-          user_id: studentId,
+          exam_session_id: sessionId,
           activity_type: eventType === "violation" ? "multiple_faces" : 
                          eventType === "warning" ? "tab_switch" : "face_detected",
           details: message,
-          metadata,
         });
 
       if (error) throw error;

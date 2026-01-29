@@ -21,49 +21,24 @@ import {
   WifiOff
 } from "lucide-react";
 
-interface ProctoringSession {
-  id: string;
-  studentName: string;
-  examName: string;
-  status: "active" | "warning" | "offline";
-  lastSeen: Date;
-  violations: number;
-  videoStream?: MediaStream;
-}
-
-interface LogEntry {
-  id: string;
-  sessionId: string;
-  studentName: string;
-  type: "info" | "warning" | "violation";
-  message: string;
-  timestamp: Date;
-}
-
 const AdminProctoring = () => {
   const { sessions, logs, loading, error } = useProctoring();
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
   const [isMonitoring, setIsMonitoring] = useState(true);
   const videoRefs = useRef<{ [key: string]: HTMLVideoElement | null }>({});
 
-  // Remove simulation since we're using real data
-  // useEffect(() => {
-  //   if (!isMonitoring) return;
-  //   ... simulation code removed
-  // }, [isMonitoring, sessions]);
-
-  const getStatusBadge = (status: ProctoringSession["status"]) => {
+  const getStatusBadge = (status: "active" | "completed" | "terminated") => {
     switch (status) {
       case "active":
         return <Badge className="bg-success text-success-foreground">Active</Badge>;
-      case "warning":
-        return <Badge className="bg-warning text-warning-foreground">Warning</Badge>;
-      case "offline":
-        return <Badge className="bg-destructive text-destructive-foreground">Offline</Badge>;
+      case "completed":
+        return <Badge className="bg-primary text-primary-foreground">Completed</Badge>;
+      case "terminated":
+        return <Badge className="bg-destructive text-destructive-foreground">Terminated</Badge>;
     }
   };
 
-  const getLogIcon = (type: LogEntry["type"]) => {
+  const getLogIcon = (type: "info" | "warning" | "violation") => {
     switch (type) {
       case "info":
         return <CheckCircle className="h-4 w-4 text-blue-500" />;
@@ -74,12 +49,12 @@ const AdminProctoring = () => {
     }
   };
 
-  const formatTime = (date: Date) => {
+  const formatTime = (dateString: string) => {
     return new Intl.DateTimeFormat("en-US", {
       hour: "2-digit",
       minute: "2-digit",
       second: "2-digit",
-    }).format(date);
+    }).format(new Date(dateString));
   };
 
   const getInitials = (name: string) => {
@@ -89,6 +64,25 @@ const AdminProctoring = () => {
       .join("")
       .toUpperCase()
       .slice(0, 2);
+  };
+
+  const getStudentName = (studentId: string) => {
+    const names: Record<string, string> = {
+      "student1": "John Doe",
+      "student2": "Jane Smith",
+      "student3": "Mike Johnson",
+      "unknown": "Unknown Student",
+    };
+    return names[studentId] || `Student ${studentId.slice(0, 8)}`;
+  };
+
+  const getExamName = (examId: string) => {
+    const names: Record<string, string> = {
+      "workday": "Workday Exam",
+      "math": "Mathematics Final",
+      "physics": "Physics Mid-Term",
+    };
+    return names[examId] || examId;
   };
 
   return (
@@ -173,28 +167,28 @@ const AdminProctoring = () => {
                           <Camera className="h-8 w-8 mb-2" />
                           <span className="text-sm">Camera Feed</span>
                         </div>
-                      ) : session.status === "warning" ? (
-                        <div className="flex flex-col items-center text-yellow-500">
-                          <AlertTriangle className="h-8 w-8 mb-2" />
-                          <span className="text-sm">Warning</span>
+                      ) : session.status === "completed" ? (
+                        <div className="flex flex-col items-center text-primary">
+                          <CheckCircle className="h-8 w-8 mb-2" />
+                          <span className="text-sm">Completed</span>
                         </div>
                       ) : (
                         <div className="flex flex-col items-center text-destructive">
                           <WifiOff className="h-8 w-8 mb-2" />
-                          <span className="text-sm">Offline</span>
+                          <span className="text-sm">Terminated</span>
                         </div>
                       )}
                     </div>
                     
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <h3 className="font-medium">{session.studentName}</h3>
+                        <h3 className="font-medium">{getStudentName(session.student_id)}</h3>
                         {getStatusBadge(session.status)}
                       </div>
-                      <p className="text-sm text-muted-foreground">{session.examName}</p>
+                      <p className="text-sm text-muted-foreground">{getExamName(session.exam_id)}</p>
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>Last seen: {formatTime(session.lastSeen)}</span>
-                        <span>Violations: {session.violations}</span>
+                        <span>Last seen: {formatTime(session.last_activity)}</span>
+                        <span>Violations: {session.violation_count}</span>
                       </div>
                     </div>
                   </CardContent>
@@ -217,12 +211,12 @@ const AdminProctoring = () => {
                 <div className="space-y-3 max-h-96 overflow-y-auto">
                   {logs.map((log) => (
                     <div key={log.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                      {getLogIcon(log.type)}
+                      {getLogIcon(log.event_type)}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
-                          <p className="text-sm font-medium">{log.studentName}</p>
+                          <p className="text-sm font-medium">{getStudentName(log.student_id)}</p>
                           <span className="text-xs text-muted-foreground">
-                            {formatTime(log.timestamp)}
+                            {formatTime(log.created_at)}
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground">{log.message}</p>
@@ -247,11 +241,11 @@ const AdminProctoring = () => {
                       <div className="space-y-3">
                         <div className="flex items-center gap-3">
                           <Avatar className="h-10 w-10">
-                            <AvatarFallback>{getInitials(session.studentName)}</AvatarFallback>
+                            <AvatarFallback>{getInitials(getStudentName(session.student_id))}</AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="font-medium">{session.studentName}</p>
-                            <p className="text-sm text-muted-foreground">{session.examName}</p>
+                            <p className="font-medium">{getStudentName(session.student_id)}</p>
+                            <p className="text-sm text-muted-foreground">{getExamName(session.exam_id)}</p>
                           </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4 text-sm">
@@ -261,11 +255,11 @@ const AdminProctoring = () => {
                           </div>
                           <div>
                             <span className="text-muted-foreground">Violations:</span>
-                            <div className="mt-1 font-medium">{session.violations}</div>
+                            <div className="mt-1 font-medium">{session.violation_count}</div>
                           </div>
                           <div>
                             <span className="text-muted-foreground">Last Seen:</span>
-                            <div className="mt-1 font-medium">{formatTime(session.lastSeen)}</div>
+                            <div className="mt-1 font-medium">{formatTime(session.last_activity)}</div>
                           </div>
                           <div>
                             <span className="text-muted-foreground">Session ID:</span>
