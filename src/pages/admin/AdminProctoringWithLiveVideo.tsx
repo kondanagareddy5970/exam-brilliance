@@ -106,15 +106,22 @@ const AdminProctoringWithLiveVideo = () => {
 
       if (sessionsError) throw sessionsError;
 
-      // Fetch security activity logs for this exam
-      const { data: logsData, error: logsError } = await supabase
-        .from("security_activity_logs")
-        .select("*")
-        .eq("exam_session_id", code)
-        .order("occurred_at", { ascending: false })
-        .limit(50);
+      // Get session IDs to fetch related logs
+      const sessionIds = (sessionsData || []).map(s => s.id);
 
-      if (logsError) throw logsError;
+      // Fetch security activity logs for these sessions (using proper session IDs)
+      let logsData: any[] = [];
+      if (sessionIds.length > 0) {
+        const { data, error: logsError } = await supabase
+          .from("security_activity_logs")
+          .select("*")
+          .in("exam_session_id", sessionIds)
+          .order("occurred_at", { ascending: false })
+          .limit(50);
+
+        if (logsError) throw logsError;
+        logsData = data || [];
+      }
 
       // Transform sessions data
       const transformedSessions: ProctoringSession[] = (sessionsData || []).map(session => ({
@@ -131,7 +138,7 @@ const AdminProctoringWithLiveVideo = () => {
       }));
 
       // Transform logs data
-      const transformedLogs: ProctoringLog[] = (logsData || []).map(log => ({
+      const transformedLogs: ProctoringLog[] = logsData.map(log => ({
         id: log.id,
         session_id: log.exam_session_id || "unknown",
         student_id: log.exam_session_id || "unknown",
@@ -200,15 +207,15 @@ const AdminProctoringWithLiveVideo = () => {
       })
       .subscribe();
 
-    // Set up real-time subscription for activities
+    // Set up real-time subscription for activities (no filter - we refetch and filter in code)
     const activitiesChannel = supabase
       .channel(`proctoring-activities-${examCode}`)
       .on("postgres_changes", {
         event: "INSERT",
         schema: "public",
         table: "security_activity_logs",
-        filter: `exam_session_id=eq.${examCode}`,
       }, () => {
+        // Refetch to get logs for our sessions
         fetchProctoringData(examCode);
       })
       .subscribe();
