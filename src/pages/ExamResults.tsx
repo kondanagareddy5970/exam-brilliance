@@ -1,4 +1,5 @@
-import { useLocation, Link } from "react-router-dom";
+import { useLocation, Link, useParams } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Layout from "@/components/layout/Layout";
@@ -8,15 +9,89 @@ import {
   XCircle, 
   Home,
   FileText,
-  Award
+  Award,
+  Loader2,
+  Clock,
+  Shield
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 const ExamResults = () => {
   const location = useLocation();
-  const { score = 3, total = 5, questions = [], answers = {} } = location.state || {};
+  const { examId } = useParams();
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [resultData, setResultData] = useState<any>(null);
+
+  // Get data from navigation state or fetch from database
+  const stateData = location.state || {};
+
+  useEffect(() => {
+    const fetchResults = async () => {
+      if (stateData.score !== undefined) {
+        // Data passed from TakeExam page
+        setResultData(stateData);
+        setLoading(false);
+        return;
+      }
+
+      if (!user || !examId) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const { data: result, error } = await supabase
+          .from("exam_results")
+          .select(`
+            *,
+            exams (title, passing_marks, total_marks)
+          `)
+          .eq("exam_id", examId)
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+
+        if (error) throw error;
+
+        setResultData({
+          score: result.score,
+          total: result.total_marks,
+          percentage: result.percentage,
+          passed: result.passed,
+          examTitle: result.exams?.title,
+          passingMarks: result.exams?.passing_marks,
+          timeTaken: result.time_taken_seconds,
+        });
+      } catch (error) {
+        console.error("Error fetching results:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchResults();
+  }, [user, examId, stateData]);
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="container py-12 flex items-center justify-center min-h-[60vh]">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-muted-foreground">Loading results...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  const { score = 0, total = 0, percentage: passedPercentage, passed: isPassed, examTitle, violations = 0, timeTaken } = resultData || {};
   
-  const percentage = Math.round((score / total) * 100);
-  const passed = percentage >= 40;
+  const percentage = passedPercentage !== undefined ? Math.round(passedPercentage) : (total > 0 ? Math.round((score / total) * 100) : 0);
+  const passed = isPassed !== undefined ? isPassed : percentage >= 40;
 
   const getGrade = () => {
     if (percentage >= 90) return { grade: "A+", color: "text-success" };

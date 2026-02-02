@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
 import { CameraPermissionDialog } from "@/components/CameraPermissionDialog";
 import { useCameraPermission, markPermissionAsGranted, markPermissionAsSkipped } from "@/hooks/useCameraPermission";
 import Index from "./pages/Index";
@@ -65,6 +66,7 @@ const AppContent = () => {
 <Route path="/admin/proctoring" element={<AdminProctoringWithLiveVideo />} />
         <Route path="/admin/exams/create" element={<CreateExam />} />
         <Route path="/admin/questions" element={<ManageQuestions />} />
+        <Route path="/admin/exams/:examId/questions" element={<ManageQuestions />} />
         <Route path="/admin/results" element={<ExportResults />} />
         <Route path="/exams" element={<Exams />} />
         <Route path="/exam/:examId/register" element={<ExamRegister />} />
@@ -80,13 +82,15 @@ const AppContent = () => {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AppContent />
-      </BrowserRouter>
-    </TooltipProvider>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AppContent />
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 

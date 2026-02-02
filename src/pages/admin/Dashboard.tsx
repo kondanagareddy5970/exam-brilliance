@@ -1,7 +1,9 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import ProfileIndicator from "@/components/ProfileIndicator";
+import { useAuth } from "@/contexts/AuthContext";
+import { useEffect } from "react";
 import { 
   Users, 
   FileText, 
@@ -14,6 +16,18 @@ import {
 } from "lucide-react";
 
 const AdminDashboard = () => {
+  const { user, isAdmin, isLoading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isLoading && (!user || !isAdmin)) {
+      navigate("/admin/login");
+    }
+  }, [user, isAdmin, isLoading, navigate]);
+
+  if (isLoading || !user || !isAdmin) {
+    return <div>Loading...</div>;
+  }
   const stats = [
     { title: "Total Students", value: "1,234", icon: Users, change: "+12%", color: "text-primary" },
     { title: "Active Exams", value: "8", icon: FileText, change: "+3", color: "text-success" },
@@ -47,13 +61,7 @@ const AdminDashboard = () => {
             <Button variant="outline" asChild>
               <Link to="/">View Site</Link>
             </Button>
-            <ProfileIndicator 
-              user={{
-                name: "Admin User",
-                email: "admin@examportal.com",
-                role: "admin",
-              }}
-            />
+            <ProfileIndicator />
           </div>
         </div>
       </header>

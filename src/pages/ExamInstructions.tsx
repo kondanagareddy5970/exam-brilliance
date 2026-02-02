@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,21 +11,98 @@ import {
   CheckCircle2, 
   Shield,
   Monitor,
-  ArrowRight
+  ArrowRight,
+  Loader2
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+
+interface ExamDetails {
+  id: string;
+  title: string;
+  duration_minutes: number;
+  total_marks: number;
+  passing_marks: number;
+  instructions: string | null;
+  question_count: number;
+}
 
 const ExamInstructions = () => {
   const { examId } = useParams();
   const navigate = useNavigate();
+  const { user, isLoading: authLoading } = useAuth();
+  const { toast } = useToast();
   const [accepted, setAccepted] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [examDetails, setExamDetails] = useState<ExamDetails | null>(null);
 
-  const examDetails = {
-    title: "Workday Exam",
-    duration: 30,
-    totalQuestions: 4,
-    totalMarks: 40,
-    passingMarks: 20,
-  };
+  useEffect(() => {
+    if (!authLoading && !user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please login to access exam instructions.",
+        variant: "destructive",
+      });
+      navigate("/login");
+      return;
+    }
+
+    const fetchExamDetails = async () => {
+      if (!examId || !user) return;
+
+      try {
+        const { data: candidateData } = await supabase
+          .from("candidates")
+          .select("*")
+          .eq("exam_id", examId)
+          .eq("user_id", user.id)
+          .single();
+
+        if (!candidateData) {
+          toast({
+            title: "Registration Required",
+            description: "Please register for this exam first.",
+            variant: "destructive",
+          });
+          navigate(`/exam/${examId}/register`);
+          return;
+        }
+
+        const { data: examData, error: examError } = await supabase
+          .from("exams")
+          .select("*")
+          .eq("id", examId)
+          .single();
+
+        if (examError) throw examError;
+
+        const { count: questionCount } = await supabase
+          .from("questions")
+          .select("*", { count: "exact", head: true })
+          .eq("exam_id", examId);
+
+        setExamDetails({
+          ...examData,
+          question_count: questionCount || 0,
+        });
+      } catch (error) {
+        console.error("Error fetching exam:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load exam details.",
+          variant: "destructive",
+        });
+        navigate("/exams");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user) {
+      fetchExamDetails();
+    }
+  }, [examId, user, authLoading, navigate, toast]);
 
   const rules = [
     "You must complete the exam within the given time limit.",
@@ -42,6 +119,29 @@ const ExamInstructions = () => {
     navigate(`/exam/${examId}/take`);
   };
 
+  if (loading || authLoading) {
+    return (
+      <Layout>
+        <div className="container py-12 flex items-center justify-center min-h-[60vh]">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-muted-foreground">Loading exam instructions...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!examDetails) {
+    return (
+      <Layout>
+        <div className="container py-12 text-center">
+          <p className="text-muted-foreground">Exam not found.</p>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <div className="container py-12">
@@ -56,22 +156,22 @@ const ExamInstructions = () => {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="p-4 rounded-lg bg-muted text-center">
                   <Clock className="h-6 w-6 mx-auto mb-2 text-primary" />
-                  <div className="text-lg font-semibold">{examDetails.duration} min</div>
+                  <div className="text-lg font-semibold">{examDetails.duration_minutes} min</div>
                   <div className="text-xs text-muted-foreground">Duration</div>
                 </div>
                 <div className="p-4 rounded-lg bg-muted text-center">
                   <FileText className="h-6 w-6 mx-auto mb-2 text-primary" />
-                  <div className="text-lg font-semibold">{examDetails.totalQuestions}</div>
+                  <div className="text-lg font-semibold">{examDetails.question_count}</div>
                   <div className="text-xs text-muted-foreground">Questions</div>
                 </div>
                 <div className="p-4 rounded-lg bg-muted text-center">
                   <CheckCircle2 className="h-6 w-6 mx-auto mb-2 text-success" />
-                  <div className="text-lg font-semibold">{examDetails.totalMarks}</div>
+                  <div className="text-lg font-semibold">{examDetails.total_marks}</div>
                   <div className="text-xs text-muted-foreground">Total Marks</div>
                 </div>
                 <div className="p-4 rounded-lg bg-muted text-center">
                   <Shield className="h-6 w-6 mx-auto mb-2 text-warning" />
-                  <div className="text-lg font-semibold">{examDetails.passingMarks}</div>
+                  <div className="text-lg font-semibold">{examDetails.passing_marks}</div>
                   <div className="text-xs text-muted-foreground">Passing Marks</div>
                 </div>
               </div>

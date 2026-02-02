@@ -1,56 +1,18 @@
-import { useState, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { User, LogOut, Settings } from "lucide-react";
-
-interface UserProfile {
-  name: string;
-  email: string;
-  role: "student" | "admin";
-  avatar?: string;
-}
+import { useAuth } from "@/contexts/AuthContext";
 
 interface ProfileIndicatorProps {
-  user?: UserProfile;
   onLogout?: () => void;
 }
 
-const ProfileIndicator = ({ user, onLogout }: ProfileIndicatorProps) => {
-  const [currentUser, setCurrentUser] = useState<UserProfile>(
-    user || {
-      name: "Guest User",
-      email: "guest@example.com",
-      role: "student",
-    }
-  );
+const ProfileIndicator = ({ onLogout }: ProfileIndicatorProps) => {
+  const { user, profile, signOut, isAdmin } = useAuth();
 
-  // Simulate checking authentication status
-  useEffect(() => {
-    const checkAuth = () => {
-      const storedUser = localStorage.getItem("user");
-      if (storedUser) {
-        try {
-          const parsedUser = JSON.parse(storedUser);
-          setCurrentUser(parsedUser);
-        } catch (error) {
-          console.error("Failed to parse user data:", error);
-        }
-      }
-    };
-
-    checkAuth();
-    
-    // Listen for storage changes (in case user logs in/out in another tab)
-    const handleStorageChange = () => {
-      checkAuth();
-    };
-    
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
-
-  const getInitials = (name: string) => {
+  const getInitials = (name: string | null) => {
+    if (!name) return "U";
     return name
       .split(" ")
       .map(n => n[0])
@@ -70,23 +32,23 @@ const ProfileIndicator = ({ user, onLogout }: ProfileIndicatorProps) => {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("user");
-    setCurrentUser({
-      name: "Guest User",
-      email: "guest@example.com",
-      role: "student",
-    });
+  const handleLogout = async () => {
+    await signOut();
     if (onLogout) {
       onLogout();
     }
   };
 
+  // Don't render if user is not authenticated
+  if (!user || !profile) {
+    return null;
+  }
+
   return (
     <div className="flex items-center gap-3">
       {/* Role Badge */}
-      <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getRoleColor(currentUser.role)}`}>
-        {currentUser.role}
+      <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getRoleColor(profile.role)}`}>
+        {profile.role}
       </div>
       
       {/* Profile Dropdown */}
@@ -94,9 +56,8 @@ const ProfileIndicator = ({ user, onLogout }: ProfileIndicatorProps) => {
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="relative h-10 w-10 rounded-full">
             <Avatar className="h-10 w-10">
-              <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
               <AvatarFallback className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground font-semibold">
-                {getInitials(currentUser.name)}
+                {getInitials(profile.full_name)}
               </AvatarFallback>
             </Avatar>
             {/* Online indicator */}
@@ -106,12 +67,12 @@ const ProfileIndicator = ({ user, onLogout }: ProfileIndicatorProps) => {
         <DropdownMenuContent className="w-56" align="end" forceMount>
           <DropdownMenuLabel className="font-normal">
             <div className="flex flex-col space-y-1">
-              <p className="text-sm font-medium leading-none">{currentUser.name}</p>
+              <p className="text-sm font-medium leading-none">{profile.full_name || "User"}</p>
               <p className="text-xs leading-none text-muted-foreground">
-                {currentUser.email}
+                {profile.email}
               </p>
-              <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getRoleColor(currentUser.role)}`}>
-                {currentUser.role}
+              <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getRoleColor(profile.role)}`}>
+                {profile.role}
               </div>
             </div>
           </DropdownMenuLabel>

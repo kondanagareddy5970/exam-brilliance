@@ -7,26 +7,37 @@ import { Label } from "@/components/ui/label";
 import Layout from "@/components/layout/Layout";
 import { Mail, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const { toast } = useToast();
+  const { resetPassword } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simulate password reset
-    setTimeout(() => {
-      setIsSubmitted(true);
-      setIsLoading(false);
+    const { error } = await resetPassword(email);
+
+    if (error) {
       toast({
-        title: "Reset Link Sent",
-        description: "Check your email for password reset instructions.",
+        title: "Error",
+        description: error.message || "Failed to send reset link",
+        variant: "destructive",
       });
-    }, 1500);
+      setIsLoading(false);
+      return;
+    }
+
+    setIsSubmitted(true);
+    setIsLoading(false);
+    toast({
+      title: "Reset Link Sent",
+      description: "Check your email for password reset instructions.",
+    });
   };
 
   return (
