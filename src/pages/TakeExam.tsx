@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Progress } from "@/components/ui/progress";
-import { Clock, AlertTriangle, CheckCircle2, Camera } from "lucide-react";
+import { Clock, AlertTriangle, CheckCircle2, Camera, Loader2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,20 +24,30 @@ import { QuestionNavigator } from "@/components/exam/QuestionNavigator";
 import { WebcamProctor } from "@/components/exam/WebcamProctor";
 import { FaceDetectionAlert } from "@/components/exam/FaceDetectionAlert";
 import StudentVideoStream from "@/components/exam/StudentVideoStream";
-
-import mockQuestions from '@/data/workday-exam.json';
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Question {
-  id: number;
+  id: string;
   question: string;
   options: string[];
   correctAnswer: number;
+  marks: number;
+}
+
+interface ExamData {
+  id: string;
+  title: string;
+  duration_minutes: number;
+  total_marks: number;
+  passing_marks: number;
 }
 
 const TakeExam = () => {
   const { examId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, isLoading: authLoading } = useAuth();
   
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
@@ -45,6 +55,10 @@ const TakeExam = () => {
   const [timeLeft, setTimeLeft] = useState(30 * 60);
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [examData, setExamData] = useState<ExamData | null>(null);
+  const [attemptId, setAttemptId] = useState<string | null>(null);
   
   // Generate consistent student ID for this exam session
   const [studentId] = useState(() => `student-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
@@ -55,6 +69,128 @@ const TakeExam = () => {
   const [warningType, setWarningType] = useState<"fullscreen" | "tab_switch" | "blocked">("fullscreen");
   const [examStarted, setExamStarted] = useState(false);
   const [isRequestingPermissions, setIsRequestingPermissions] = useState(false);
+
+  // Fetch exam data and questions
+  useEffect(() => {
+    if (!authLoading && !user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please login to take the exam.",
+        variant: "destructive",
+      });
+      navigate("/login");
+      return;
+    }
+
+    const fetchExamData = async () => {
+      if (!examId || !user) return;
+
+      try {
+        // Check if user is registered for this exam
+        const { data: candidateData } = await supabase
+          .from("candidates")
+          .select("*")
+          .eq("exam_id", examId)
+          .eq("user_id", user.id)
+          .single();
+
+        if (!candidateData) {
+          toast({
+            title: "Registration Required",
+            description: "Please register for this exam first.",
+            variant: "destructive",
+          });
+          navigate(`/exam/${examId}/register`);
+          return;
+        }
+
+        // Check for existing attempt
+        const { data: existingAttempt } = await supabase
+          .from("exam_attempts")
+          .select("*")
+          .eq("exam_id", examId)
+          .eq("user_id", user.id)
+          .single();
+
+        if (existingAttempt && existingAttempt.status !== "in_progress") {
+          toast({
+            title: "Exam Already Completed",
+            description: "You have already submitted this exam.",
+            variant: "destructive",
+          });
+          navigate(`/exam/${examId}/results`);
+          return;
+        }
+
+        // Fetch exam details
+        const { data: exam, error: examError } = await supabase
+          .from("exams")
+          .select("*")
+          .eq("id", examId)
+          .single();
+
+        if (examError) throw examError;
+        setExamData(exam);
+        setTimeLeft(exam.duration_minutes * 60);
+
+        // Fetch questions
+        const { data: questionsData, error: questionsError } = await supabase
+          .from("questions")
+          .select("*")
+          .eq("exam_id", examId)
+          .order("order_index", { ascending: true });
+
+        if (questionsError) throw questionsError;
+
+        const formattedQuestions: Question[] = (questionsData || []).map((q) => ({
+          id: q.id,
+          question: q.question_text,
+          options: (q.options as string[]) || [],
+          correctAnswer: q.correct_answer || 0,
+          marks: q.marks,
+        }));
+
+        setQuestions(formattedQuestions);
+
+        // Create or resume attempt
+        if (existingAttempt) {
+          setAttemptId(existingAttempt.id);
+          setAnswers((existingAttempt.answers as Record<number, number>) || {});
+          const elapsed = Math.floor((Date.now() - new Date(existingAttempt.start_time).getTime()) / 1000);
+          const remaining = exam.duration_minutes * 60 - elapsed;
+          setTimeLeft(Math.max(0, remaining));
+        } else {
+          const { data: newAttempt, error: attemptError } = await supabase
+            .from("exam_attempts")
+            .insert({
+              user_id: user.id,
+              exam_id: examId,
+              candidate_id: candidateData.id,
+              status: "in_progress",
+            })
+            .select()
+            .single();
+
+          if (attemptError) throw attemptError;
+          setAttemptId(newAttempt.id);
+        }
+      } catch (error) {
+        console.error("Error fetching exam data:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load exam. Please try again.",
+          variant: "destructive",
+        });
+        navigate("/exams");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user) {
+      fetchExamData();
+    }
+  }, [examId, user, authLoading, navigate, toast]);
   
   // Webcam state
   const [webcamMinimized, setWebcamMinimized] = useState(false);
@@ -260,7 +396,7 @@ const TakeExam = () => {
   };
 
   const handleSelect = (optionIndex: number) => {
-    handleAnswerSelect(questionId, optionIndex);
+    handleAnswerSelect(currentQuestion, optionIndex);
   };
 
   const toggleFlag = (questionId: number) => {
@@ -276,7 +412,7 @@ const TakeExam = () => {
   };
 
   const handleToggleFlag = () => {
-    toggleFlag(questionId);
+    toggleFlag(currentQuestion);
   };
 
   const handleAutoSubmit = useCallback(() => {
@@ -288,14 +424,20 @@ const TakeExam = () => {
     submitExam();
   }, []);
 
-  const submitExam = () => {
+  const submitExam = async () => {
     setIsSubmitting(true);
-    let correct = 0;
-    mockQuestions.forEach((q, idx) => {
-      if (answers[idx] === q.correct) {
-        correct++;
+    let score = 0;
+    let totalMarks = 0;
+
+    questions.forEach((q, idx) => {
+      totalMarks += q.marks;
+      if (answers[idx] === q.correctAnswer) {
+        score += q.marks;
       }
     });
+
+    const percentage = totalMarks > 0 ? (score / totalMarks) * 100 : 0;
+    const passed = examData ? percentage >= (examData.passing_marks / examData.total_marks) * 100 : false;
 
     // Stop webcam and exit fullscreen before navigating
     stopWebcam();
@@ -303,31 +445,73 @@ const TakeExam = () => {
       document.exitFullscreen();
     }
 
-    setTimeout(() => {
-      navigate(`/exam/${examId}/results`, { 
-        state: { 
-          score: correct, 
-          total: mockQuestions.length,
-          answers,
-          questions: mockQuestions.map((q, idx) => ({ ...q, id: idx, correctAnswer: q.correct })),
-          activityLogs,
-          violations,
-          proctorPhotos: capturedPhotos.length,
-        } 
-      });
-    }, 1500);
+    try {
+      // Update attempt in database
+      if (attemptId && user) {
+        await supabase
+          .from("exam_attempts")
+          .update({
+            status: "submitted",
+            end_time: new Date().toISOString(),
+            score,
+            total_marks: totalMarks,
+            percentage,
+            passed,
+            answers,
+            violations_count: violations,
+          })
+          .eq("id", attemptId);
+
+        // Create result record
+        await supabase.from("exam_results").insert({
+          attempt_id: attemptId,
+          user_id: user.id,
+          exam_id: examId,
+          score,
+          total_marks: totalMarks,
+          percentage,
+          passed,
+          time_taken_seconds: examData ? examData.duration_minutes * 60 - timeLeft : 0,
+        });
+      }
+    } catch (error) {
+      console.error("Error saving results:", error);
+    }
+
+    navigate(`/exam/${examId}/results`, { 
+      state: { 
+        score, 
+        total: totalMarks,
+        percentage,
+        passed,
+        answers,
+        questions,
+        activityLogs,
+        violations,
+        proctorPhotos: capturedPhotos.length,
+        examTitle: examData?.title,
+        passingMarks: examData?.passing_marks,
+      } 
+    });
   };
 
-  const questionId = currentQuestion;
-  const question: Question = {
-    id: questionId,
-    question: mockQuestions[currentQuestion].question,
-    options: mockQuestions[currentQuestion].options,
-    correctAnswer: mockQuestions[currentQuestion].correct,
-  };
+  const questionIndex = currentQuestion;
+  const currentQ = questions[currentQuestion];
   const answeredCount = Object.keys(answers).length;
-  const progress = (answeredCount / mockQuestions.length) * 100;
+  const progress = questions.length > 0 ? (answeredCount / questions.length) * 100 : 0;
   const isUrgent = timeLeft <= 300;
+
+  // Show loading state
+  if (loading || authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading exam...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Show fullscreen prompt before exam starts
   if (showFullscreenPrompt) {
@@ -356,7 +540,7 @@ const TakeExam = () => {
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-card/95 backdrop-blur">
         <div className="container flex h-16 items-center justify-between">
-          <div className="font-display font-semibold">Workday Exam</div>
+          <div className="font-display font-semibold">{examData?.title || "Exam"}</div>
           
           <div className="flex items-center gap-4">
             {/* Webcam status indicator (minimized) */}
@@ -397,26 +581,28 @@ const TakeExam = () => {
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Progress</span>
-                <span className="font-medium">{answeredCount} of {mockQuestions.length} answered</span>
+                <span className="font-medium">{answeredCount} of {questions.length} answered</span>
               </div>
               <Progress value={progress} className="h-2" />
             </div>
 
             {/* Question Card */}
+            {currentQ && (
             <QuestionCard
-              question={question}
+              question={{ id: currentQuestion, question: currentQ.question, options: currentQ.options, correctAnswer: currentQ.correctAnswer }}
               questionIndex={currentQuestion}
-              totalQuestions={mockQuestions.length}
-              selectedAnswer={answers[questionId]}
-              isFlagged={flagged.has(questionId)}
+              totalQuestions={questions.length}
+              selectedAnswer={answers[currentQuestion]}
+              isFlagged={flagged.has(currentQuestion)}
               onAnswerSelect={handleSelect}
               onToggleFlag={handleToggleFlag}
               onPrevious={() => setCurrentQuestion((prev) => prev - 1)}
               onNext={() => setCurrentQuestion((prev) => prev + 1)}
               onSubmit={() => setShowSubmitDialog(true)}
-              isLastQuestion={currentQuestion === mockQuestions.length - 1}
+              isLastQuestion={currentQuestion === questions.length - 1}
               isFirstQuestion={currentQuestion === 0}
             />
+            )}
           </div>
 
           {/* Sidebar */}
@@ -454,7 +640,7 @@ const TakeExam = () => {
             )}
             
             <QuestionNavigator
-              questions={mockQuestions.map((q, idx) => ({ id: idx, question: q.question, options: q.options, correctAnswer: q.correct }))}
+              questions={questions.map((q, idx) => ({ id: idx, question: q.question, options: q.options, correctAnswer: q.correctAnswer }))}
               currentQuestion={currentQuestion}
               answers={answers}
               flagged={flagged}
@@ -478,7 +664,7 @@ const TakeExam = () => {
               <div className="mt-4 p-4 bg-muted rounded-lg space-y-2">
                 <div className="flex justify-between">
                   <span>Total Questions:</span>
-                  <span className="font-medium">{mockQuestions.length}</span>
+                  <span className="font-medium">{questions.length}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Answered:</span>
@@ -486,7 +672,7 @@ const TakeExam = () => {
                 </div>
                 <div className="flex justify-between">
                   <span>Unanswered:</span>
-                  <span className="font-medium text-destructive">{mockQuestions.length - answeredCount}</span>
+                  <span className="font-medium text-destructive">{questions.length - answeredCount}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Flagged:</span>
@@ -506,9 +692,9 @@ const TakeExam = () => {
                   <span className="font-medium">{photoCount}</span>
                 </div>
               </div>
-              {mockQuestions.length - answeredCount > 0 && (
+              {questions.length - answeredCount > 0 && (
                 <p className="text-destructive text-sm mt-2">
-                  Warning: You have {mockQuestions.length - answeredCount} unanswered question(s).
+                  Warning: You have {questions.length - answeredCount} unanswered question(s).
                 </p>
               )}
             </AlertDialogDescription>

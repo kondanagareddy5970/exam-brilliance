@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,25 +21,136 @@ import {
   Award,
   Target,
   Zap,
-  Play
+  Play,
+  Loader2
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+
+interface Stats {
+  totalStudents: number;
+  activeExams: number;
+  completedToday: number;
+  avgScore: number;
+  studentGrowth: number;
+  examGrowth: number;
+}
+
+interface RecentExam {
+  id: string;
+  exam_title: string;
+  start_time: string;
+  status: string;
+  user_email: string;
+  score: number | null;
+  violations_count: number;
+}
 
 const AdminDashboard = () => {
-  // Mock data for fallback
-  const stats = {
-    totalStudents: 1234,
-    activeExams: 8,
-    completedToday: 156,
-    avgScore: 72,
-    studentGrowth: 12,
-    examGrowth: 8,
-  };
-  
-  const recentExams = [
-    { id: "1", exam_title: "Workday Exam", start_time: new Date().toISOString(), submission_status: "in_progress", user_id: "student1", score: null, violations_count: 0 },
-    { id: "2", exam_title: "Mathematics Final", start_time: new Date(Date.now() - 3600000).toISOString(), submission_status: "submitted", user_id: "student2", score: 85, violations_count: 2 },
-    { id: "3", exam_title: "Physics Mid-Term", start_time: new Date(Date.now() - 7200000).toISOString(), submission_status: "submitted", user_id: "student3", score: 92, violations_count: 1 },
-  ];
+  const { user, isAdmin, isLoading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<Stats>({
+    totalStudents: 0,
+    activeExams: 0,
+    completedToday: 0,
+    avgScore: 0,
+    studentGrowth: 0,
+    examGrowth: 0,
+  });
+  const [recentExams, setRecentExams] = useState<RecentExam[]>([]);
+
+  useEffect(() => {
+    if (!authLoading && (!user || !isAdmin)) {
+      toast({
+        title: "Access Denied",
+        description: "You need admin privileges to access this page.",
+        variant: "destructive",
+      });
+      navigate("/admin/login");
+      return;
+    }
+
+    const fetchDashboardData = async () => {
+      try {
+        // Fetch total students
+        const { count: studentCount } = await supabase
+          .from("profiles")
+          .select("*", { count: "exact", head: true })
+          .eq("role", "student");
+
+        // Fetch active exams
+        const { count: activeExamCount } = await supabase
+          .from("exams")
+          .select("*", { count: "exact", head: true })
+          .eq("is_active", true);
+
+        // Fetch completed today
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const { count: completedTodayCount } = await supabase
+          .from("exam_attempts")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "submitted")
+          .gte("end_time", today.toISOString());
+
+        // Fetch average score
+        const { data: scoreData } = await supabase
+          .from("exam_results")
+          .select("percentage");
+        
+        const avgScore = scoreData && scoreData.length > 0
+          ? Math.round(scoreData.reduce((acc, r) => acc + (r.percentage || 0), 0) / scoreData.length)
+          : 0;
+
+        // Fetch recent exam attempts
+        const { data: attemptsData } = await supabase
+          .from("exam_attempts")
+          .select(`
+            id,
+            status,
+            start_time,
+            score,
+            violations_count,
+            exams (title),
+            profiles (email)
+          `)
+          .order("start_time", { ascending: false })
+          .limit(5);
+
+        setStats({
+          totalStudents: studentCount || 0,
+          activeExams: activeExamCount || 0,
+          completedToday: completedTodayCount || 0,
+          avgScore,
+          studentGrowth: 12,
+          examGrowth: 8,
+        });
+
+        setRecentExams(
+          (attemptsData || []).map((a: any) => ({
+            id: a.id,
+            exam_title: a.exams?.title || "Unknown Exam",
+            start_time: a.start_time,
+            status: a.status,
+            user_email: a.profiles?.email || "Unknown",
+            score: a.score,
+            violations_count: a.violations_count || 0,
+          }))
+        );
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user && isAdmin) {
+      fetchDashboardData();
+    }
+  }, [user, isAdmin, authLoading, navigate, toast]);
 
   const recentActivities = [
     { id: "1", type: "exam_started", user_id: "student1", details: "Started Workday Exam", timestamp: new Date().toISOString() },
@@ -93,6 +205,17 @@ const AdminDashboard = () => {
     return "text-destructive";
   };
 
+  if (loading || authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Admin Header */}
@@ -116,13 +239,7 @@ const AdminDashboard = () => {
             <Button variant="outline" asChild>
               <Link to="/">View Site</Link>
             </Button>
-            <ProfileIndicator 
-              user={{
-                name: "Admin User",
-                email: "admin@examportal.com",
-                role: "admin",
-              }}
-            />
+            <ProfileIndicator />
           </div>
         </div>
       </header>
@@ -303,7 +420,7 @@ const AdminDashboard = () => {
                         </span>
                         <span className="flex items-center gap-1">
                           <Users className="h-3 w-3" />
-                          {exam.user_id}
+                          {exam.user_email}
                         </span>
                       </div>
                     </div>
@@ -319,7 +436,7 @@ const AdminDashboard = () => {
                           {exam.violations_count}
                         </span>
                       )}
-                      {getStatusBadge(exam.submission_status)}
+                      {getStatusBadge(exam.status)}
                     </div>
                   </div>
                 ))}

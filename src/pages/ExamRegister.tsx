@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,14 +6,28 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Layout from "@/components/layout/Layout";
-import { User, Mail, Phone, Hash, BookOpen, ArrowRight } from "lucide-react";
+import { User, Mail, Phone, Hash, BookOpen, ArrowRight, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+
+interface Exam {
+  id: string;
+  title: string;
+  subject: string;
+  duration_minutes: number;
+  description: string | null;
+}
 
 const ExamRegister = () => {
   const { examId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, profile, isLoading: authLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [examLoading, setExamLoading] = useState(true);
+  const [exam, setExam] = useState<Exam | null>(null);
+  const [alreadyRegistered, setAlreadyRegistered] = useState(false);
   const [formData, setFormData] = useState({
     fullName: "",
     registrationNumber: "",
@@ -34,20 +48,117 @@ const ExamRegister = () => {
     "Workday",
   ];
 
+  useEffect(() => {
+    if (!authLoading && !user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please login to register for exams.",
+        variant: "destructive",
+      });
+      navigate("/login");
+      return;
+    }
+
+    if (profile) {
+      setFormData(prev => ({
+        ...prev,
+        fullName: profile.full_name || "",
+        email: profile.email || "",
+      }));
+    }
+  }, [user, profile, authLoading, navigate, toast]);
+
+  useEffect(() => {
+    const fetchExamAndCheckRegistration = async () => {
+      if (!examId || !user) return;
+
+      try {
+        const { data: examData, error: examError } = await supabase
+          .from("exams")
+          .select("*")
+          .eq("id", examId)
+          .single();
+
+        if (examError) throw examError;
+        setExam(examData);
+
+        const { data: candidateData } = await supabase
+          .from("candidates")
+          .select("*")
+          .eq("exam_id", examId)
+          .eq("user_id", user.id)
+          .single();
+
+        if (candidateData) {
+          setAlreadyRegistered(true);
+          navigate(`/exam/${examId}/instructions`);
+        }
+      } catch (error) {
+        console.error("Error fetching exam:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load exam details.",
+          variant: "destructive",
+        });
+        navigate("/exams");
+      } finally {
+        setExamLoading(false);
+      }
+    };
+
+    if (user) {
+      fetchExamAndCheckRegistration();
+    }
+  }, [examId, user, navigate, toast]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user || !examId) return;
+
     setIsLoading(true);
 
-    // Simulate registration
-    setTimeout(() => {
+    try {
+      const { error } = await supabase.from("candidates").insert({
+        user_id: user.id,
+        exam_id: examId,
+        full_name: formData.fullName,
+        registration_number: formData.registrationNumber,
+        email: formData.email,
+        phone: formData.phone,
+        course: formData.course,
+      });
+
+      if (error) throw error;
+
       toast({
         title: "Registration Successful!",
         description: "You can now proceed to the exam instructions.",
       });
-      setIsLoading(false);
       navigate(`/exam/${examId}/instructions`);
-    }, 1500);
+    } catch (error: any) {
+      console.error("Registration error:", error);
+      toast({
+        title: "Registration Failed",
+        description: error.message || "Failed to register for exam.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  if (examLoading || authLoading) {
+    return (
+      <Layout>
+        <div className="container py-12 flex items-center justify-center min-h-[60vh]">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-muted-foreground">Loading exam details...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>

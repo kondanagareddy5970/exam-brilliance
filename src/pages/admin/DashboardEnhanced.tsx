@@ -278,13 +278,7 @@ const AdminDashboard = () => {
             <Button variant="outline" asChild>
               <Link to="/">View Site</Link>
             </Button>
-            <ProfileIndicator 
-              user={{
-                name: "Admin User",
-                email: "admin@examportal.com",
-                role: "admin",
-              }}
-            />
+            <ProfileIndicator />
           </div>
         </div>
       </header>
