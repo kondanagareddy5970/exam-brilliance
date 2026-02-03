@@ -84,6 +84,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    // Set up auth state change listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          // Use setTimeout to avoid potential race conditions with Supabase's auth state
+          setTimeout(async () => {
+            const [profileData, roleData] = await Promise.all([
+              fetchProfile(session.user.id),
+              fetchUserRole(session.user.id)
+            ]);
+            setProfile(profileData);
+            setUserRole(roleData);
+            setIsLoading(false);
+          }, 0);
+        } else {
+          setProfile(null);
+          setUserRole(null);
+          setIsLoading(false);
+        }
+      }
+    );
+
+    // THEN check initial session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -97,27 +123,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setIsLoading(false);
     });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          const [profileData, roleData] = await Promise.all([
-            fetchProfile(session.user.id),
-            fetchUserRole(session.user.id)
-          ]);
-          setProfile(profileData);
-          setUserRole(roleData);
-        } else {
-          setProfile(null);
-          setUserRole(null);
-        }
-        
-        setIsLoading(false);
-      }
-    );
 
     return () => subscription.unsubscribe();
   }, []);

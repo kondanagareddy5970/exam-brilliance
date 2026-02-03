@@ -20,19 +20,17 @@ const AdminLogin = () => {
   const navigate = useNavigate();
   const { signIn, user, isAdmin, isLoading: authLoading } = useAuth();
 
+  // Wait for auth to fully load (including role) before redirecting
   useEffect(() => {
     if (!authLoading && user) {
+      // Check if we have role data before making a decision
       if (isAdmin) {
         navigate("/admin/dashboard");
-      } else {
-        toast({
-          title: "Access Denied",
-          description: "You don't have admin privileges.",
-          variant: "destructive",
-        });
       }
+      // Don't show "Access Denied" immediately - role might still be loading
+      // The form will remain on this page if user is not admin
     }
-  }, [user, isAdmin, authLoading, navigate, toast]);
+  }, [user, isAdmin, authLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,8 +57,9 @@ const AdminLogin = () => {
       setIsLoading(false);
       return;
     }
-
-    setIsLoading(false);
+    
+    // Don't set loading to false here - let the AuthContext handle
+    // the navigation via the useEffect once role is loaded
   };
 
   return (
