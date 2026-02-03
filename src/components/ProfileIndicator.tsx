@@ -9,7 +9,7 @@ interface ProfileIndicatorProps {
 }
 
 const ProfileIndicator = ({ onLogout }: ProfileIndicatorProps) => {
-  const { user, profile, signOut, isAdmin } = useAuth();
+  const { user, profile, userRole, signOut, isAdmin } = useAuth();
 
   const getInitials = (name: string | null) => {
     if (!name) return "U";
@@ -39,6 +39,8 @@ const ProfileIndicator = ({ onLogout }: ProfileIndicatorProps) => {
     }
   };
 
+  const roleName = userRole?.role || 'student';
+
   // Don't render if user is not authenticated
   if (!user || !profile) {
     return null;
@@ -47,8 +49,8 @@ const ProfileIndicator = ({ onLogout }: ProfileIndicatorProps) => {
   return (
     <div className="flex items-center gap-3">
       {/* Role Badge */}
-      <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getRoleColor(profile.role)}`}>
-        {profile.role}
+      <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getRoleColor(roleName)}`}>
+        {roleName}
       </div>
       
       {/* Profile Dropdown */}
@@ -71,8 +73,8 @@ const ProfileIndicator = ({ onLogout }: ProfileIndicatorProps) => {
               <p className="text-xs leading-none text-muted-foreground">
                 {profile.email}
               </p>
-              <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getRoleColor(profile.role)}`}>
-                {profile.role}
+              <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getRoleColor(roleName)}`}>
+                {roleName}
               </div>
             </div>
           </DropdownMenuLabel>
