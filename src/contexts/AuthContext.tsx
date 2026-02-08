@@ -8,15 +8,24 @@ interface Profile {
   user_id: string;
   email: string | null;
   full_name: string | null;
-  role: 'student' | 'admin';
   created_at: string;
   updated_at: string;
+}
+
+type AppRole = 'admin' | 'student';
+
+interface UserRole {
+  id: string;
+  user_id: string;
+  role: AppRole;
+  created_at: string;
 }
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
+  userRole: UserRole | null;
   isLoading: boolean;
   isAdmin: boolean;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
@@ -32,6 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
@@ -39,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, user_id, email, full_name, created_at, updated_at')
         .eq('user_id', userId)
         .single();
 
@@ -54,38 +64,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  useEffect(() => {
-    let isMounted = true;
+  const fetchUserRole = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
 
-    const initializeAuth = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('Error getting session:', error);
-        }
-        
-        if (isMounted) {
-          setSession(session);
-          setUser(session?.user ?? null);
-          if (session?.user) {
-            const profileData = await fetchProfile(session.user.id);
-            if (isMounted) {
-              setProfile(profileData);
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error initializing auth:', error);
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+      if (error) {
+        console.error('Error fetching user role:', error);
+        return null;
       }
-    };
+      return data as UserRole;
+    } catch (error) {
+      console.error('Error fetching user role:', error);
+      return null;
+    }
+  };
 
-    initializeAuth();
-
+  useEffect(() => {
+    // Set up auth state change listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!isMounted) return;
@@ -94,21 +93,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
 
         if (session?.user) {
-          fetchProfile(session.user.id).then((profileData) => {
-            if (isMounted) {
-              setProfile(profileData);
-            }
-          });
+          // Use setTimeout to avoid potential race conditions with Supabase's auth state
+          setTimeout(async () => {
+            const [profileData, roleData] = await Promise.all([
+              fetchProfile(session.user.id),
+              fetchUserRole(session.user.id)
+            ]);
+            setProfile(profileData);
+            setUserRole(roleData);
+            setIsLoading(false);
+          }, 0);
         } else {
           setProfile(null);
+          setUserRole(null);
+          setIsLoading(false);
         }
       }
     );
 
-    return () => {
-      isMounted = false;
-      subscription.unsubscribe();
-    };
+    // THEN check initial session
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        const [profileData, roleData] = await Promise.all([
+          fetchProfile(session.user.id),
+          fetchUserRole(session.user.id)
+        ]);
+        setProfile(profileData);
+        setUserRole(roleData);
+      }
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const signUp = async (email: string, password: string, fullName: string) => {
@@ -156,6 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setSession(null);
       setProfile(null);
+      setUserRole(null);
     } catch (error) {
       console.error('Error signing out:', error);
       toast({
@@ -202,8 +221,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     session,
     profile,
+    userRole,
     isLoading,
-    isAdmin: profile?.role === 'admin',
+    isAdmin: userRole?.role === 'admin',
     signUp,
     signIn,
     signOut,
