@@ -2,12 +2,12 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Layout from "@/components/layout/Layout";
-import { 
-  Shield, 
-  Clock, 
-  BarChart3, 
-  Users, 
-  CheckCircle2, 
+import {
+  Shield,
+  Clock,
+  BarChart3,
+  Users,
+  CheckCircle2,
   BookOpen,
   ArrowRight,
   Sparkles
@@ -49,25 +49,25 @@ const Index = () => {
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-gradient-hero">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20width%3D%2260%22%20height%3D%2260%22%20viewBox%3D%220%200%2060%2060%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cg%20fill%3D%22none%22%20fill-rule%3D%22evenodd%22%3E%3Cg%20fill%3D%22%233b82f6%22%20fill-opacity%3D%220.03%22%3E%3Cpath%20d%3D%22M36%2034v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6%2034v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6%204V0H4v4H0v2h4v4h2V6h4V4H6z%22%2F%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E')] opacity-50"></div>
-        
+
         <div className="container relative py-24 lg:py-32">
           <div className="mx-auto max-w-4xl text-center">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm font-medium text-primary animate-fade-in">
               <Sparkles className="h-4 w-4" />
               <span>Trusted by 50,000+ students worldwide</span>
             </div>
-            
+
             <h1 className="mb-6 font-display text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl animate-slide-up" style={{ animationDelay: "0.1s" }}>
               Take Your Exams{" "}
               <span className="text-gradient">Online</span> with Confidence
             </h1>
-            
+
             <p className="mb-8 text-lg text-muted-foreground sm:text-xl animate-slide-up" style={{ animationDelay: "0.2s" }}>
-              A secure, intuitive platform for online examinations. 
-              Whether you're a student preparing for success or an institution managing assessments, 
+              A secure, intuitive platform for online examinations.
+              Whether you're a student preparing for success or an institution managing assessments,
               ExamPortal delivers a seamless experience.
             </p>
-            
+
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-slide-up" style={{ animationDelay: "0.3s" }}>
               <Button variant="hero" size="xl" asChild>
                 <Link to="/register">
@@ -76,7 +76,7 @@ const Index = () => {
                 </Link>
               </Button>
               <Button variant="outline" size="xl" asChild>
-                <Link to="/admin/login">Admin Portal</Link>
+                <Link to="/login">Sign In</Link>
               </Button>
             </div>
           </div>
@@ -105,7 +105,7 @@ const Index = () => {
               Everything You Need for Successful Exams
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              Our platform provides all the tools and features needed to conduct fair, 
+              Our platform provides all the tools and features needed to conduct fair,
               secure, and efficient online examinations.
             </p>
           </div>
@@ -173,7 +173,7 @@ const Index = () => {
                   Ready to Excel in Your Exams?
                 </h2>
                 <p className="text-lg opacity-90 mb-8">
-                  Join thousands of students who trust ExamPortal for their online assessments. 
+                  Join thousands of students who trust ExamPortal for their online assessments.
                   Register now and take your first step towards success.
                 </p>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4">

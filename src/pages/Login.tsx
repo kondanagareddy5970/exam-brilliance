@@ -12,19 +12,22 @@ import { useAuth } from "@/contexts/AuthContext";
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasRedirected, setHasRedirected] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
   const { toast } = useToast();
-  const { signIn, user, isLoading: authLoading } = useAuth();
+  const { signIn, user, isLoading: authLoading, isAdmin } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!authLoading && user) {
-      navigate("/exams");
+    if (!authLoading && user && !hasRedirected) {
+      setHasRedirected(true);
+      // Redirect admin users to admin dashboard, students to exams
+      navigate(isAdmin ? "/admin/dashboard" : "/exams");
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, isAdmin, navigate, hasRedirected]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,7 +50,7 @@ const Login = () => {
       description: "Redirecting to your dashboard...",
     });
     setIsLoading(false);
-    navigate("/exams");
+    // Navigation will be handled by useEffect after auth state updates
   };
 
   return (
@@ -82,8 +85,8 @@ const Login = () => {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="password">Password</Label>
-                    <Link 
-                      to="/forgot-password" 
+                    <Link
+                      to="/forgot-password"
                       className="text-xs text-primary hover:underline"
                     >
                       Forgot password?
@@ -130,8 +133,8 @@ const Login = () => {
               </div>
 
               <div className="mt-4 text-center">
-                <Link 
-                  to="/admin/login" 
+                <Link
+                  to="/admin/login"
                   className="text-xs text-muted-foreground hover:text-primary transition-colors"
                 >
                   Admin Login →

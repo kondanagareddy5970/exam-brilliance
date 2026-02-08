@@ -11,7 +11,6 @@ import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
-import AdminLogin from "./pages/AdminLogin";
 import Exams from "./pages/Exams";
 import ExamRegister from "./pages/ExamRegister";
 import ExamInstructions from "./pages/ExamInstructions";
@@ -59,11 +58,10 @@ const AppContent = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin/dashboard" element={<AdminDashboardSimple />} />
-<Route path="/admin/exams" element={<AdminExams />} />
-<Route path="/admin/students" element={<AdminStudents />} />
-<Route path="/admin/proctoring" element={<AdminProctoringWithLiveVideo />} />
+        <Route path="/admin/exams" element={<AdminExams />} />
+        <Route path="/admin/students" element={<AdminStudents />} />
+        <Route path="/admin/proctoring" element={<AdminProctoringWithLiveVideo />} />
         <Route path="/admin/exams/create" element={<CreateExam />} />
         <Route path="/admin/questions" element={<ManageQuestions />} />
         <Route path="/admin/exams/:examId/questions" element={<ManageQuestions />} />
