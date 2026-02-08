@@ -4,10 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import ProfileIndicator from "@/components/ProfileIndicator";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect } from "react";
-import { 
-  Users, 
-  FileText, 
-  BarChart3, 
+import {
+  Users,
+  FileText,
+  BarChart3,
   Plus,
   TrendingUp,
   Clock,
@@ -21,7 +21,7 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     if (!isLoading && (!user || !isAdmin)) {
-      navigate("/admin/login");
+      navigate("/login");
     }
   }, [user, isAdmin, isLoading, navigate]);
 

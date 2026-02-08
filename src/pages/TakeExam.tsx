@@ -48,7 +48,7 @@ const TakeExam = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, isLoading: authLoading } = useAuth();
-  
+
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [flagged, setFlagged] = useState<Set<number>>(new Set());
@@ -59,10 +59,10 @@ const TakeExam = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [examData, setExamData] = useState<ExamData | null>(null);
   const [attemptId, setAttemptId] = useState<string | null>(null);
-  
+
   // Generate consistent student ID for this exam session
   const [studentId] = useState(() => `student-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
-  
+
   // Anti-cheat state
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(true);
   const [showSecurityWarning, setShowSecurityWarning] = useState(false);
@@ -140,7 +140,22 @@ const TakeExam = () => {
           .eq("exam_id", examId)
           .order("order_index", { ascending: true });
 
-        if (questionsError) throw questionsError;
+        if (questionsError) {
+          console.error("Error fetching questions:", questionsError);
+          throw questionsError;
+        }
+
+        console.log("Fetched questions data:", questionsData);
+
+        if (!questionsData || questionsData.length === 0) {
+          toast({
+            title: "No Questions Found",
+            description: "This exam doesn't have any questions yet. Please contact the administrator.",
+            variant: "destructive",
+          });
+          navigate("/exams");
+          return;
+        }
 
         const formattedQuestions: Question[] = (questionsData || []).map((q) => ({
           id: q.id,
@@ -150,6 +165,7 @@ const TakeExam = () => {
           marks: q.marks,
         }));
 
+        console.log("Formatted questions:", formattedQuestions);
         setQuestions(formattedQuestions);
 
         // Create or resume attempt
@@ -191,10 +207,10 @@ const TakeExam = () => {
       fetchExamData();
     }
   }, [examId, user, authLoading, navigate, toast]);
-  
+
   // Webcam state
   const [webcamMinimized, setWebcamMinimized] = useState(false);
-  
+
   // Face detection threshold (5 seconds without face triggers alert)
   const FACE_DETECTION_THRESHOLD_MS = 5000;
 
@@ -291,7 +307,7 @@ const TakeExam = () => {
   // Handle entering fullscreen and starting exam
   const handleEnterFullscreen = async () => {
     setIsRequestingPermissions(true);
-    
+
     // First request webcam access
     const webcamSuccess = await requestWebcamAccess();
     if (!webcamSuccess) {
@@ -303,7 +319,7 @@ const TakeExam = () => {
       });
       return;
     }
-    
+
     // Then request fullscreen
     const fullscreenSuccess = await requestFullscreen();
     if (!fullscreenSuccess) {
@@ -315,11 +331,11 @@ const TakeExam = () => {
       });
       return;
     }
-    
+
     setIsRequestingPermissions(false);
     setShowFullscreenPrompt(false);
     setExamStarted(true);
-    
+
     toast({
       title: "Exam Started",
       description: "Secure mode and webcam proctoring activated. Good luck!",
@@ -353,7 +369,7 @@ const TakeExam = () => {
   // Timer
   useEffect(() => {
     if (!examStarted) return;
-    
+
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
@@ -370,7 +386,7 @@ const TakeExam = () => {
   // Auto-save
   useEffect(() => {
     if (!examStarted) return;
-    
+
     const autoSave = setInterval(() => {
       console.log("Auto-saving answers:", answers);
       console.log("Activity logs:", activityLogs);
@@ -384,7 +400,7 @@ const TakeExam = () => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
-    
+
     if (hours > 0) {
       return `${hours}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
     }
@@ -392,11 +408,12 @@ const TakeExam = () => {
   };
 
   const handleAnswerSelect = (questionId: number, optionIndex: number) => {
+    console.log(`Answer selected for question ${questionId}: option ${optionIndex}`);
     setAnswers((prev) => ({ ...prev, [questionId]: optionIndex }));
   };
 
-  const handleSelect = (optionIndex: number) => {
-    handleAnswerSelect(currentQuestion, optionIndex);
+  const handleSelect = (questionId: number, optionIndex: number) => {
+    handleAnswerSelect(questionId, optionIndex);
   };
 
   const toggleFlag = (questionId: number) => {
@@ -478,9 +495,9 @@ const TakeExam = () => {
       console.error("Error saving results:", error);
     }
 
-    navigate(`/exam/${examId}/results`, { 
-      state: { 
-        score, 
+    navigate(`/exam/${examId}/results`, {
+      state: {
+        score,
         total: totalMarks,
         percentage,
         passed,
@@ -491,7 +508,7 @@ const TakeExam = () => {
         proctorPhotos: capturedPhotos.length,
         examTitle: examData?.title,
         passingMarks: examData?.passing_marks,
-      } 
+      }
     });
   };
 
@@ -541,7 +558,7 @@ const TakeExam = () => {
       <header className="sticky top-0 z-50 border-b bg-card/95 backdrop-blur">
         <div className="container flex h-16 items-center justify-between">
           <div className="font-display font-semibold">{examData?.title || "Exam"}</div>
-          
+
           <div className="flex items-center gap-4">
             {/* Webcam status indicator (minimized) */}
             {webcamMinimized && (
@@ -557,14 +574,14 @@ const TakeExam = () => {
                 isDetectingFace={isDetectingFace}
               />
             )}
-            
+
             <SecurityStatusBar
               violations={violations}
               maxViolations={3}
               tabSwitchCount={tabSwitchCount}
               isFullscreen={isFullscreen}
             />
-            
+
             <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isUrgent ? "bg-destructive/10 text-destructive timer-urgent" : "bg-muted"}`}>
               <Clock className="h-5 w-5" />
               <span className="font-mono font-bold text-lg">{formatTime(timeLeft)}</span>
@@ -588,20 +605,20 @@ const TakeExam = () => {
 
             {/* Question Card */}
             {currentQ && (
-            <QuestionCard
-              question={{ id: currentQuestion, question: currentQ.question, options: currentQ.options, correctAnswer: currentQ.correctAnswer }}
-              questionIndex={currentQuestion}
-              totalQuestions={questions.length}
-              selectedAnswer={answers[currentQuestion]}
-              isFlagged={flagged.has(currentQuestion)}
-              onAnswerSelect={handleSelect}
-              onToggleFlag={handleToggleFlag}
-              onPrevious={() => setCurrentQuestion((prev) => prev - 1)}
-              onNext={() => setCurrentQuestion((prev) => prev + 1)}
-              onSubmit={() => setShowSubmitDialog(true)}
-              isLastQuestion={currentQuestion === questions.length - 1}
-              isFirstQuestion={currentQuestion === 0}
-            />
+              <QuestionCard
+                question={{ id: currentQuestion, question: currentQ.question, options: currentQ.options, correctAnswer: currentQ.correctAnswer }}
+                questionIndex={currentQuestion}
+                totalQuestions={questions.length}
+                selectedAnswer={answers[currentQuestion]}
+                isFlagged={flagged.has(currentQuestion)}
+                onAnswerSelect={handleSelect}
+                onToggleFlag={handleToggleFlag}
+                onPrevious={() => setCurrentQuestion((prev) => prev - 1)}
+                onNext={() => setCurrentQuestion((prev) => prev + 1)}
+                onSubmit={() => setShowSubmitDialog(true)}
+                isLastQuestion={currentQuestion === questions.length - 1}
+                isFirstQuestion={currentQuestion === 0}
+              />
             )}
           </div>
 
@@ -615,7 +632,7 @@ const TakeExam = () => {
               onStreamStart={() => console.log("Student streaming started")}
               onStreamStop={() => console.log("Student streaming stopped")}
             />
-            
+
             {/* Face Detection Alert */}
             <FaceDetectionAlert
               noFaceAlertActive={noFaceAlertActive}
@@ -623,7 +640,7 @@ const TakeExam = () => {
               faceCount={faceCount}
               thresholdMs={FACE_DETECTION_THRESHOLD_MS}
             />
-            
+
             {/* Webcam Feed */}
             {!webcamMinimized && (
               <WebcamProctor
@@ -638,7 +655,7 @@ const TakeExam = () => {
                 isDetectingFace={isDetectingFace}
               />
             )}
-            
+
             <QuestionNavigator
               questions={questions.map((q, idx) => ({ id: idx, question: q.question, options: q.options, correctAnswer: q.correctAnswer }))}
               currentQuestion={currentQuestion}
@@ -701,7 +718,7 @@ const TakeExam = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Review Answers</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={submitExam}
               className="bg-gradient-primary"
               disabled={isSubmitting}

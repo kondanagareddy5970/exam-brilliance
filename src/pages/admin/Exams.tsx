@@ -6,13 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  Plus, 
-  Loader2, 
-  Clock, 
-  FileText, 
-  Users, 
-  Edit, 
+import {
+  Plus,
+  Loader2,
+  Clock,
+  FileText,
+  Users,
+  Edit,
   Trash2,
   BarChart3,
   ArrowLeft
@@ -45,7 +45,7 @@ const AdminExams = () => {
         description: "You need admin privileges to access this page.",
         variant: "destructive",
       });
-      navigate("/admin/login");
+      navigate("/login");
       return;
     }
 

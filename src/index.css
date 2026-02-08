@@ -121,7 +121,12 @@
     font-family: 'Inter', sans-serif;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-family: 'Plus Jakarta Sans', sans-serif;
   }
 }
@@ -181,6 +186,7 @@
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -191,6 +197,7 @@
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -202,6 +209,7 @@
     opacity: 0;
     transform: scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -209,9 +217,12 @@
 }
 
 @keyframes pulseSoft {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.7;
   }
@@ -219,9 +230,12 @@
 
 /* Timer urgency animation */
 @keyframes timerUrgent {
-  0%, 100% {
+
+  0%,
+  100% {
     color: hsl(0, 84%, 60%);
   }
+
   50% {
     color: hsl(0, 84%, 50%);
   }

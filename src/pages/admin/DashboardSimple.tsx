@@ -5,10 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import ProfileIndicator from "@/components/ProfileIndicator";
-import { 
-  Users, 
-  FileText, 
-  BarChart3, 
+import {
+  Users,
+  FileText,
+  BarChart3,
   Plus,
   TrendingUp,
   Clock,
@@ -69,7 +69,7 @@ const AdminDashboard = () => {
         description: "You need admin privileges to access this page.",
         variant: "destructive",
       });
-      navigate("/admin/login");
+      navigate("/login");
       return;
     }
 
@@ -100,7 +100,7 @@ const AdminDashboard = () => {
         const { data: scoreData } = await supabase
           .from("exam_results")
           .select("percentage");
-        
+
         const avgScore = scoreData && scoreData.length > 0
           ? Math.round(scoreData.reduce((acc, r) => acc + (r.percentage || 0), 0) / scoreData.length)
           : 0;
@@ -191,7 +191,7 @@ const AdminDashboard = () => {
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
-    
+
     if (diffMins < 1) return "Just now";
     if (diffMins < 60) return `${diffMins} min ago`;
     if (diffMins < 1440) return `${Math.floor(diffMins / 60)} hours ago`;
@@ -231,7 +231,7 @@ const AdminDashboard = () => {
               <span className="text-xs text-muted-foreground">Live</span>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-4">
             <Button variant="outline" asChild>
               <Link to="/admin/proctoring">Live Proctoring</Link>
@@ -377,7 +377,7 @@ const AdminDashboard = () => {
             </Link>
           </Button>
           <Button variant="outline" size="lg" className="h-auto py-6 group hover:border-primary" asChild>
-            <Link to="/admin/questions" className="flex flex-col items-center gap-2">
+            <Link to="/admin/exams" className="flex flex-col items-center gap-2">
               <FileText className="h-6 w-6 group-hover:scale-110 transition-transform" />
               <span>Manage Questions</span>
             </Link>
