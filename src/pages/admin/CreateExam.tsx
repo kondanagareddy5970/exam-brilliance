@@ -34,7 +34,7 @@ const CreateExam = () => {
         description: "You need admin privileges to access this page.",
         variant: "destructive",
       });
-      navigate("/admin/login");
+      navigate("/login");
     }
   }, [user, isAdmin, authLoading, navigate, toast]);
 

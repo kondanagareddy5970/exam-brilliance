@@ -7,10 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  ArrowLeft, 
-  BarChart3, 
-  Download, 
+import {
+  ArrowLeft,
+  BarChart3,
+  Download,
   Loader2,
   FileSpreadsheet,
   Users,
@@ -54,7 +54,7 @@ const ExportResults = () => {
         description: "You need admin privileges to access this page.",
         variant: "destructive",
       });
-      navigate("/admin/login");
+      navigate("/login");
       return;
     }
 

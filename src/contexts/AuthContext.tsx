@@ -87,9 +87,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Set up auth state change listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (!isMounted) return;
+        
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         if (session?.user) {
           // Use setTimeout to avoid potential race conditions with Supabase's auth state
           setTimeout(async () => {
