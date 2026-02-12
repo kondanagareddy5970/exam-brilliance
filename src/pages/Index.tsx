@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Layout from "@/components/layout/Layout";
@@ -15,6 +16,19 @@ import {
 import heroBg from "@/assets/hero-bg.jpg";
 
 const Index = () => {
+  const parallaxRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (parallaxRef.current) {
+        const scrollY = window.scrollY;
+        parallaxRef.current.style.transform = `translateY(${scrollY * 0.4}px) scale(1.1)`;
+      }
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   const features = [
     {
       icon: Shield,
@@ -50,7 +64,8 @@ const Index = () => {
       {/* Hero Section */}
       <section className="relative overflow-hidden min-h-[600px]">
         <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          ref={parallaxRef}
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat scale-110 will-change-transform"
           style={{ backgroundImage: `url(${heroBg})` }}
         />
         <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/50 to-background/90" />
