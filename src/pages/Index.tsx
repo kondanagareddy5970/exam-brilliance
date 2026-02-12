@@ -197,7 +197,7 @@ const Index = () => {
         <div className="absolute inset-0 bg-background/60" />
         <div className="container relative">
           <Card variant="gradient" className="overflow-hidden">
-            <div className="relative p-8 md:p-12 lg:p-16 bg-gradient-primary/90 text-primary-foreground backdrop-blur-sm">
+            <div className="relative p-8 md:p-12 lg:p-16 text-primary-foreground backdrop-blur-sm" style={{ background: 'linear-gradient(135deg, hsl(221 83% 53% / 0.95), hsl(238 83% 60% / 0.95))' }}>
               <div className="relative max-w-2xl mx-auto text-center">
                 <BookOpen className="h-12 w-12 mx-auto mb-6 opacity-90" />
                 <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">
