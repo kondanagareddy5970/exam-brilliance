@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 
 interface FullscreenPromptProps {
   onEnterFullscreen: () => void;
+  onSkipWebcam: () => void;
   onCancel: () => void;
   isRequestingWebcam?: boolean;
   webcamError?: string | null;
@@ -14,6 +15,7 @@ interface FullscreenPromptProps {
 
 export const FullscreenPrompt = ({ 
   onEnterFullscreen, 
+  onSkipWebcam,
   onCancel,
   isRequestingWebcam = false,
   webcamError,
@@ -85,6 +87,15 @@ export const FullscreenPrompt = ({
               <p className="text-xs text-destructive/80 mt-1">
                 Please ensure your webcam is connected and browser permissions are granted.
               </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                onClick={onSkipWebcam}
+                disabled={!acceptedTerms || isRequestingWebcam}
+              >
+                Continue without webcam
+              </Button>
             </div>
           )}
 
