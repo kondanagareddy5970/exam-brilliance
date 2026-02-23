@@ -170,11 +170,35 @@ const TakeExam = () => {
 
         // Create or resume attempt
         if (existingAttempt) {
-          setAttemptId(existingAttempt.id);
-          setAnswers((existingAttempt.answers as Record<number, number>) || {});
           const elapsed = Math.floor((Date.now() - new Date(existingAttempt.start_time).getTime()) / 1000);
           const remaining = exam.duration_minutes * 60 - elapsed;
-          setTimeLeft(Math.max(0, remaining));
+
+          if (remaining <= 0) {
+            // Attempt has expired - reset it with a fresh start time
+            const { error: resetError } = await supabase
+              .from("exam_attempts")
+              .update({
+                start_time: new Date().toISOString(),
+                answers: {},
+                violations_count: 0,
+                status: "in_progress",
+                score: null,
+                total_marks: null,
+                percentage: null,
+                passed: null,
+                end_time: null,
+              })
+              .eq("id", existingAttempt.id);
+
+            if (resetError) throw resetError;
+            setAttemptId(existingAttempt.id);
+            setAnswers({});
+            setTimeLeft(exam.duration_minutes * 60);
+          } else {
+            setAttemptId(existingAttempt.id);
+            setAnswers((existingAttempt.answers as Record<number, number>) || {});
+            setTimeLeft(remaining);
+          }
         } else {
           const { data: newAttempt, error: attemptError } = await supabase
             .from("exam_attempts")
