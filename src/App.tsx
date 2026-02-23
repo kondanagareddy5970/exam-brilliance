@@ -27,6 +27,7 @@ import AdminProctoringWithLiveVideo from "./pages/admin/AdminProctoringWithLiveV
 import CreateExam from "./pages/admin/CreateExam";
 import ManageQuestions from "./pages/admin/ManageQuestions";
 import ExportResults from "./pages/admin/ExportResults";
+import AdminLogin from "./pages/AdminLogin";
 import About from "./pages/About";
 import NotFound from "./pages/NotFound";
 
@@ -59,6 +60,7 @@ const AppContent = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin/dashboard" element={<AdminDashboardSimple />} />
         <Route path="/admin/exams" element={<AdminExams />} />
         <Route path="/admin/students" element={<AdminStudents />} />
