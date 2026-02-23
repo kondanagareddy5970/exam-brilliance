@@ -336,15 +336,21 @@ const TakeExam = () => {
     const webcamSuccess = await requestWebcamAccess();
     if (!webcamSuccess) {
       setIsRequestingPermissions(false);
-      toast({
-        title: "Webcam Required",
-        description: "Please allow webcam access to start the exam.",
-        variant: "destructive",
-      });
+      // Don't block — show error, user can skip via "Continue without webcam"
       return;
     }
 
     // Then request fullscreen
+    await startExamWithFullscreen();
+  };
+
+  // Skip webcam and start with fullscreen only
+  const handleSkipWebcam = async () => {
+    setIsRequestingPermissions(true);
+    await startExamWithFullscreen();
+  };
+
+  const startExamWithFullscreen = async () => {
     const fullscreenSuccess = await requestFullscreen();
     if (!fullscreenSuccess) {
       setIsRequestingPermissions(false);
@@ -362,7 +368,9 @@ const TakeExam = () => {
 
     toast({
       title: "Exam Started",
-      description: "Secure mode and webcam proctoring activated. Good luck!",
+      description: webcamEnabled
+        ? "Secure mode and webcam proctoring activated. Good luck!"
+        : "Secure mode activated (webcam disabled). Good luck!",
     });
   };
 
@@ -559,6 +567,7 @@ const TakeExam = () => {
     return (
       <FullscreenPrompt
         onEnterFullscreen={handleEnterFullscreen}
+        onSkipWebcam={handleSkipWebcam}
         onCancel={handleCancelExam}
         isRequestingWebcam={isRequestingPermissions}
         webcamError={webcamError}
