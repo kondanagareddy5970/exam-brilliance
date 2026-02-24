@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Layout from "@/components/layout/Layout";
 import {
@@ -16,6 +17,20 @@ import {
 import heroBg from "@/assets/hero-bg.jpg";
 import howItWorksBg from "@/assets/how-it-works-bg.jpg";
 import ctaBg from "@/assets/cta-bg.jpg";
+
+const ScrollRevealGrid = ({ children, className }: { children: React.ReactNode; className?: string }) => {
+  const { ref, isVisible } = useScrollAnimation<HTMLDivElement>();
+  return (
+    <div
+      ref={ref}
+      className={`${className ?? ""} transition-all duration-700 ${
+        isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+      }`}
+    >
+      {children}
+    </div>
+  );
+};
 
 const Index = () => {
   const parallaxRef = useRef<HTMLDivElement>(null);
@@ -132,7 +147,7 @@ const Index = () => {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <ScrollRevealGrid className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {features.map((feature, index) => (
               <Card key={index} variant="interactive" className="group">
                 <CardHeader>
@@ -146,7 +161,7 @@ const Index = () => {
                 </CardContent>
               </Card>
             ))}
-          </div>
+          </ScrollRevealGrid>
         </div>
       </section>
 
@@ -167,7 +182,7 @@ const Index = () => {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+          <ScrollRevealGrid className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
             {[
               { step: "01", title: "Register", description: "Create your account with basic details and verify your email." },
               { step: "02", title: "Select Exam", description: "Browse available exams and choose the one you want to take." },
@@ -184,7 +199,7 @@ const Index = () => {
                 )}
               </div>
             ))}
-          </div>
+          </ScrollRevealGrid>
         </div>
       </section>
 
