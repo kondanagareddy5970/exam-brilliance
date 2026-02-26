@@ -31,6 +31,16 @@ const Login = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!navigator.onLine) {
+      toast({
+        title: "No Internet Connection",
+        description: "Please check your connection and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     const { error } = await signIn(formData.email, formData.password);

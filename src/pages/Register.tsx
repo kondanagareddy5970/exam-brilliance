@@ -31,6 +31,15 @@ const Register = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!navigator.onLine) {
+      toast({
+        title: "No Internet Connection",
+        description: "Please check your connection and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       toast({
         title: "Passwords don't match",

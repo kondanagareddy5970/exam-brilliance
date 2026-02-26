@@ -45,19 +45,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
+  const clearPersistedAuthState = () => {
+    try {
+      const authStorageKeys = Object.keys(localStorage).filter(
+        (key) => key.startsWith('sb-') && key.endsWith('-auth-token')
+      );
+
+      authStorageKeys.forEach((key) => localStorage.removeItem(key));
+    } catch (error) {
+      console.error('Error clearing persisted auth state:', error);
+    }
+  };
+
+  const toFriendlyAuthError = (error: unknown, fallbackMessage: string) => {
+    const message = error instanceof Error ? error.message.toLowerCase() : '';
+
+    if (message.includes('failed to fetch')) {
+      return new Error('Unable to reach authentication service. Check your internet and try again.');
+    }
+
+    return error instanceof Error ? error : new Error(fallbackMessage);
+  };
+
   const fetchProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('id, user_id, email, full_name, created_at, updated_at')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching profile:', error);
         return null;
       }
-      return data as Profile;
+
+      return (data ?? null) as Profile | null;
     } catch (error) {
       console.error('Error fetching profile:', error);
       return null;
@@ -70,62 +93,81 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .from('user_roles')
         .select('*')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching user role:', error);
         return null;
       }
-      return data as UserRole;
+
+      return (data ?? null) as UserRole | null;
     } catch (error) {
       console.error('Error fetching user role:', error);
       return null;
     }
   };
 
+  const loadUserContext = async (userId: string) => {
+    const [profileData, roleData] = await Promise.all([
+      fetchProfile(userId),
+      fetchUserRole(userId),
+    ]);
+
+    return { profileData, roleData };
+  };
+
   useEffect(() => {
     let isMounted = true;
-    // Set up auth state change listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (!isMounted) return;
-        
-        setSession(session);
-        setUser(session?.user ?? null);
 
-        if (session?.user) {
-          // Use setTimeout to avoid potential race conditions with Supabase's auth state
-          setTimeout(async () => {
-            const [profileData, roleData] = await Promise.all([
-              fetchProfile(session.user.id),
-              fetchUserRole(session.user.id)
-            ]);
-            setProfile(profileData);
-            setUserRole(roleData);
-            setIsLoading(false);
-          }, 0);
-        } else {
-          setProfile(null);
-          setUserRole(null);
-          setIsLoading(false);
-        }
+    const syncAuthState = async (nextSession: Session | null) => {
+      if (!isMounted) return;
+
+      setSession(nextSession);
+      setUser(nextSession?.user ?? null);
+
+      if (!nextSession?.user) {
+        setProfile(null);
+        setUserRole(null);
+        setIsLoading(false);
+        return;
+      }
+
+      const { profileData, roleData } = await loadUserContext(nextSession.user.id);
+
+      if (!isMounted) return;
+      setProfile(profileData);
+      setUserRole(roleData);
+      setIsLoading(false);
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, nextSession) => {
+        void syncAuthState(nextSession);
       }
     );
 
-    // THEN check initial session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        const [profileData, roleData] = await Promise.all([
-          fetchProfile(session.user.id),
-          fetchUserRole(session.user.id)
-        ]);
-        setProfile(profileData);
-        setUserRole(roleData);
+    const initializeAuth = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+
+        if (error) throw error;
+
+        await syncAuthState(data.session);
+      } catch (error) {
+        console.error('Error initializing auth session:', error);
+        clearPersistedAuthState();
+
+        if (!isMounted) return;
+
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        setUserRole(null);
+        setIsLoading(false);
       }
-      setIsLoading(false);
-    });
+    };
+
+    void initializeAuth();
 
     return () => {
       isMounted = false;
@@ -135,40 +177,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string, fullName: string) => {
     try {
+      const normalizedEmail = email.trim().toLowerCase();
+
       const { error } = await supabase.auth.signUp({
-        email,
+        email: normalizedEmail,
         password,
         options: {
+          emailRedirectTo: window.location.origin,
           data: {
-            full_name: fullName,
+            full_name: fullName.trim(),
           },
         },
       });
 
       if (error) {
-        return { error };
+        return { error: toFriendlyAuthError(error, 'Failed to create account') };
       }
 
       return { error: null };
     } catch (error) {
-      return { error: error as Error };
+      return { error: toFriendlyAuthError(error, 'Failed to create account') };
     }
   };
 
   const signIn = async (email: string, password: string) => {
     try {
+      const normalizedEmail = email.trim().toLowerCase();
+
       const { error } = await supabase.auth.signInWithPassword({
-        email,
+        email: normalizedEmail,
         password,
       });
 
       if (error) {
-        return { error };
+        return { error: toFriendlyAuthError(error, 'Failed to sign in') };
       }
 
       return { error: null };
     } catch (error) {
-      return { error: error as Error };
+      return { error: toFriendlyAuthError(error, 'Failed to sign in') };
     }
   };
 
@@ -179,6 +226,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(null);
       setProfile(null);
       setUserRole(null);
+      clearPersistedAuthState();
     } catch (error) {
       console.error('Error signing out:', error);
       toast({
@@ -191,17 +239,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resetPassword = async (email: string) => {
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      const normalizedEmail = email.trim().toLowerCase();
+
+      const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
 
       if (error) {
-        return { error };
+        return { error: toFriendlyAuthError(error, 'Failed to send password reset email') };
       }
 
       return { error: null };
     } catch (error) {
-      return { error: error as Error };
+      return { error: toFriendlyAuthError(error, 'Failed to send password reset email') };
     }
   };
 
@@ -212,12 +262,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (error) {
-        return { error };
+        return { error: toFriendlyAuthError(error, 'Failed to update password') };
       }
 
       return { error: null };
     } catch (error) {
-      return { error: error as Error };
+      return { error: toFriendlyAuthError(error, 'Failed to update password') };
     }
   };
 
