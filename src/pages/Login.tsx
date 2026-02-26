@@ -22,9 +22,10 @@ const Login = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Wait until auth AND role are fully loaded before redirecting
     if (!authLoading && user && !hasRedirected) {
+      // Only redirect once we know the role (userRole will be null while loading, defined once loaded)
       setHasRedirected(true);
-      // Redirect admin users to admin dashboard, students to exams
       navigate(isAdmin ? "/admin/dashboard" : "/exams");
     }
   }, [user, authLoading, isAdmin, navigate, hasRedirected]);
